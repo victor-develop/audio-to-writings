@@ -130,7 +130,8 @@ const RecordingInterface: React.FC = () => {
     if (audioBlob && user) {
       try {
         // Upload to Supabase Storage - NO FALLBACKS
-        const { url, error } = await uploadAudioFile(audioBlob, title, user.id)
+        const result = await uploadAudioFile(audioBlob, title, user.id)
+        const { url, error } = result
         
         if (error) {
           console.error('Failed to upload audio:', error)
@@ -144,13 +145,15 @@ const RecordingInterface: React.FC = () => {
         // Only save if we have a valid Supabase URL
         const newRecording: Recording = {
           id: Date.now().toString(),
-          title,
+          title, // User-friendly display alias (can be Chinese)
           audioUrl: url,
           duration,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          storagePath: result.storagePath || undefined // Internal storage path
         }
         
         console.log('Saving new recording:', newRecording)
+        console.log('Storage path used:', result.storagePath)
         setRecordings(prev => {
           const updated = [newRecording, ...prev]
           console.log('Updated recordings array:', updated)
@@ -169,6 +172,15 @@ const RecordingInterface: React.FC = () => {
 
   const handleDeleteRecording = (id: string) => {
     setRecordings(prev => prev.filter(recording => recording.id !== id))
+  }
+
+  const handleRenameRecording = (id: string, newTitle: string) => {
+    setRecordings(prev => prev.map(recording => 
+      recording.id === id 
+        ? { ...recording, title: newTitle }
+        : recording
+    ))
+    console.log(`Renamed recording ${id} to: ${newTitle}`)
   }
 
   const handlePlayRecording = (recording: Recording) => {
@@ -372,6 +384,7 @@ const RecordingInterface: React.FC = () => {
                 onDelete={handleDeleteRecording}
                 onDownload={handleDownloadRecording}
                 onTranscribe={handleTranscribeRecording}
+                onRename={handleRenameRecording}
               />
             )}
           </motion.div>
