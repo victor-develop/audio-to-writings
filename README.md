@@ -1,16 +1,17 @@
-# Voice Recorder Pro
+# AudioPen Pro
 
-A professional voice recording application built with Vite, TypeScript, and Supabase. Features high-quality audio recording, local storage, and AI-powered transcription capabilities.
+A professional audio-to-writing application built with Vite, TypeScript, and Supabase. Transform your voice into professional writing with AI-powered transcription and content generation.
 
 ## Features
 
-- 🎤 **High-Quality Recording**: Capture audio from both microphone and system audio
+- 🎤 **Voice Capture**: Capture audio from both microphone and system audio
+- ✍️ **AI Writing**: Transform voice into professional writing with AI
 - 🔐 **Google Authentication**: Secure login with Google OAuth
-- 💾 **Local Storage**: Recordings stored locally with browser storage
+- 💾 **Local Storage**: Voice content stored locally with browser storage
 - 🎵 **Audio Playback**: Built-in audio player with controls
 - 📱 **Responsive Design**: Modern, professional UI with smooth animations
-- 🚀 **Edge Functions**: Supabase Edge Functions for AI transcription
-- 📊 **Recording History**: Manage and organize your recordings
+- 🚀 **Edge Functions**: Supabase Edge Functions for AI content generation
+- 📚 **Voice Library**: Manage and organize your voice content
 
 ## Tech Stack
 
@@ -32,7 +33,7 @@ A professional voice recording application built with Vite, TypeScript, and Supa
 
 ```bash
 git clone <your-repo-url>
-cd voice-recorder-app
+cd audiopen-pro
 npm install
 ```
 

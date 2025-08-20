@@ -127,7 +127,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900">AI Transcription</h3>
+              <h3 className="text-xl font-semibold text-gray-900">AI Writing Assistant</h3>
             </div>
             <button
               onClick={onClose}
@@ -139,7 +139,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
 
           {/* Recording Info */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-gray-900 mb-2">Recording: {recording.title}</h4>
+            <h4 className="font-medium text-gray-900 mb-2">Voice: {recording.title}</h4>
             <p className="text-sm text-gray-600">
               Duration: {Math.floor(recording.duration / 1000)}s | 
               Created: {new Date(recording.createdAt).toLocaleDateString()}
@@ -152,7 +152,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
               {/* Prompt Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Transcription Type
+                  Select Writing Style
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {predefinedPrompts.map((prompt) => (
@@ -181,7 +181,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="Enter your custom prompt for the AI transcription..."
+                    placeholder="Enter your custom prompt for the AI writing..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     rows={4}
                   />
@@ -212,7 +212,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Processing with AI...</span>
+                    <span>Creating your content...</span>
                   </>
                 ) : (
                   <>

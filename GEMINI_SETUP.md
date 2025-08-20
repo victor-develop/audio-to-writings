@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide will help you set up Google Gemini AI integration for audio transcription in your Voice Recorder Pro application.
+This guide will help you set up Google Gemini AI integration for audio-to-writing conversion in your AudioPen Pro application.
 
 ## Prerequisites
 

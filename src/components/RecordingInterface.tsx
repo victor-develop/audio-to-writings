@@ -135,8 +135,8 @@ const RecordingInterface: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Voice Recorder</h1>
-          <p className="text-gray-600">Capture high-quality audio recordings with ease</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">AudioPen Pro</h1>
+          <p className="text-gray-600">Transform your voice into professional writing with AI</p>
         </motion.div>
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -147,7 +147,7 @@ const RecordingInterface: React.FC = () => {
             transition={{ delay: 0.2 }}
             className="card"
           >
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Recording Controls</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Voice Capture</h2>
             
             {/* Duration Display */}
             <div className="text-center mb-6">
@@ -155,7 +155,7 @@ const RecordingInterface: React.FC = () => {
                 {formatDuration(duration)}
               </div>
               <div className="text-sm text-gray-500 mt-1">
-                {isRecording ? 'Recording...' : isPaused ? 'Paused' : 'Ready to record'}
+                {isRecording ? 'Capturing voice...' : isPaused ? 'Paused' : 'Ready to capture voice'}
               </div>
             </div>
 
@@ -216,7 +216,7 @@ const RecordingInterface: React.FC = () => {
                   disabled={isUploading}
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isUploading ? 'Uploading...' : 'Save Recording'}</span>
+                  <span>{isUploading ? 'Uploading...' : 'Save & Process'}</span>
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -225,7 +225,7 @@ const RecordingInterface: React.FC = () => {
                   className="btn-secondary flex items-center space-x-2"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>New Recording</span>
+                  <span>New Voice</span>
                 </motion.button>
               </div>
             )}
@@ -238,12 +238,12 @@ const RecordingInterface: React.FC = () => {
             transition={{ delay: 0.4 }}
             className="card"
           >
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Recording History</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Your Voice Library</h2>
             {recordings.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 <Mic className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No recordings yet</p>
-                <p className="text-sm">Start recording to see your history here</p>
+                <p>No voice content yet</p>
+                <p className="text-sm">Start capturing your voice to see your library here</p>
               </div>
             ) : (
               <RecordingHistory

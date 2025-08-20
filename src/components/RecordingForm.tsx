@@ -35,7 +35,7 @@ const RecordingForm: React.FC<RecordingFormProps> = ({ onSubmit, onCancel }) => 
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">Save Recording</h3>
+            <h3 className="text-xl font-semibold text-gray-900">Save Voice</h3>
             <button
               onClick={onCancel}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -46,15 +46,15 @@ const RecordingForm: React.FC<RecordingFormProps> = ({ onSubmit, onCancel }) => 
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Recording Title
-              </label>
+                          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              Voice Title
+            </label>
               <input
                 type="text"
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter a title for your recording"
+                placeholder="Enter a title for your voice content"
                 className="input-field"
                 autoFocus
                 required
@@ -75,7 +75,7 @@ const RecordingForm: React.FC<RecordingFormProps> = ({ onSubmit, onCancel }) => 
                 className="flex-1 btn-primary flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
-                <span>Save</span>
+                <span>Save Voice</span>
               </button>
             </div>
           </form>

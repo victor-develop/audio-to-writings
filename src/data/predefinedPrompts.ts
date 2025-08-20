@@ -10,15 +10,15 @@ export const predefinedPrompts: PredefinedPrompt[] = [
   {
     id: 'basic-transcription',
     name: 'Basic Transcription',
-    shortDescription: 'Simple audio to text conversion',
-    prompt: 'Please transcribe this audio recording into text format. Maintain the original content and structure.',
+    shortDescription: 'Simple voice-to-text conversion',
+    prompt: 'Please transcribe this voice content into clear, readable text format. Maintain the original content and structure.',
     category: 'transcription'
   },
   {
     id: 'meeting-minutes',
     name: 'Meeting Minutes',
-    shortDescription: 'Convert meeting audio to structured minutes',
-    prompt: `Please transcribe this meeting recording and format it as meeting minutes with:
+    shortDescription: 'Convert meeting voice to structured minutes',
+    prompt: `Please transcribe this meeting voice and format it as meeting minutes with:
 - Key discussion points
 - Action items
 - Decisions made
@@ -28,8 +28,8 @@ export const predefinedPrompts: PredefinedPrompt[] = [
   {
     id: 'interview-transcript',
     name: 'Interview Transcript',
-    shortDescription: 'Professional interview transcription with speaker identification',
-    prompt: `Please transcribe this interview recording with:
+    shortDescription: 'Professional interview voice to transcript with speaker identification',
+    prompt: `Please transcribe this interview voice with:
 - Speaker identification (Interviewer/Interviewee)
 - Timestamps for key moments
 - Clear formatting for easy reading
@@ -39,8 +39,8 @@ export const predefinedPrompts: PredefinedPrompt[] = [
   {
     id: 'lecture-notes',
     name: 'Lecture Notes',
-    shortDescription: 'Academic lecture to structured notes',
-    prompt: `Please transcribe this lecture and organize it as:
+    shortDescription: 'Academic lecture voice to structured notes',
+    prompt: `Please transcribe this lecture voice and organize it as:
 - Main topics and subtopics
 - Key concepts and definitions
 - Important examples mentioned
@@ -50,8 +50,8 @@ export const predefinedPrompts: PredefinedPrompt[] = [
   {
     id: 'podcast-summary',
     name: 'Podcast Summary',
-    shortDescription: 'Podcast episode to summary with key points',
-    prompt: `Please transcribe this podcast and provide:
+    shortDescription: 'Podcast voice to summary with key points',
+    prompt: `Please transcribe this podcast voice and provide:
 - A brief summary (2-3 sentences)
 - Key topics discussed
 - Notable quotes or insights

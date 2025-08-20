@@ -72,7 +72,7 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onPlay(recording)}
                 className="p-2 text-primary-600 hover:bg-primary-100 rounded-lg transition-colors duration-200"
-                title="Play recording"
+                title="Play voice"
               >
                 <Play className="w-4 h-4" />
               </motion.button>
@@ -82,7 +82,7 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onTranscribe(recording)}
                 className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
-                title="AI Transcription"
+                title="AI Writing Assistant"
               >
                 <Sparkles className="w-4 h-4" />
               </motion.button>
@@ -92,7 +92,7 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onDownload(recording)}
                 className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200"
-                title="Download recording"
+                title="Download voice"
               >
                 <Download className="w-4 h-4" />
               </motion.button>
@@ -102,7 +102,7 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onDelete(recording.id)}
                 className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-                title="Delete recording"
+                title="Delete voice"
               >
                 <Trash2 className="w-4 h-4" />
               </motion.button>
