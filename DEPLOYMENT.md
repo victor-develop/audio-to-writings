@@ -114,9 +114,15 @@ This guide will walk you through deploying your Voice Recorder Pro application t
 
 1. In your Vercel project dashboard, go to **Settings** → **Environment Variables**
 2. Add the following variables:
-   - `VITE_SUPABASE_URL`: `https://your-project.supabase.co`
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
-3. Click **Save**
+   - **Name**: `VITE_SUPABASE_URL`
+   - **Value**: `https://your-project.supabase.co`
+   - **Environment**: Production (and Preview if you want)
+3. Add the second variable:
+   - **Name**: `VITE_SUPABASE_ANON_KEY`
+   - **Value**: Your Supabase anon key (starts with `eyJ...`)
+   - **Environment**: Production (and Preview if you want)
+4. Click **Save** for each variable
+5. **Important**: After adding environment variables, you need to redeploy your project for them to take effect
 
 ### 2.4 Update Supabase Redirect URLs
 
@@ -190,6 +196,23 @@ This guide will walk you through deploying your Voice Recorder Pro application t
 - [Supabase Documentation](https://supabase.com/docs)
 - [Vercel Documentation](https://vercel.com/docs)
 - [Vite Documentation](https://vitejs.dev/guide/)
+
+### Common Vercel Deployment Issues
+
+1. **Environment Variables Not Working**
+   - Ensure variables are prefixed with `VITE_` for Vite
+   - Redeploy after adding environment variables
+   - Check that variables are set for the correct environment (Production/Preview)
+
+2. **Build Failures**
+   - Verify all dependencies are in `package.json`
+   - Check that TypeScript compilation passes locally
+   - Ensure `npm run build` works locally
+
+3. **OAuth Redirect Errors**
+   - Verify redirect URLs match exactly (including protocol and trailing slashes)
+   - Check that environment variables are loaded correctly
+   - Ensure Supabase project is properly configured
 
 ## Next Steps
 
