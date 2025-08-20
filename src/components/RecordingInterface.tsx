@@ -50,26 +50,23 @@ const RecordingInterface: React.FC = () => {
         return isValidUrl
       })
       
-      // If we removed any recordings, log it
+      // Only update if we actually need to remove recordings
       if (validRecordings.length !== prev.length) {
         console.log(`Cleaned up ${prev.length - validRecordings.length} recordings with invalid URLs`)
+        return validRecordings
       }
       
-      return validRecordings
+      // Return the same array reference if no changes needed
+      return prev
     })
   }, [setRecordings])
 
-  // Clean up invalid recordings on component mount and whenever recordings change
+  // Clean up invalid recordings only on component mount
   useEffect(() => {
     cleanupInvalidRecordings()
   }, [cleanupInvalidRecordings])
 
-  // Also clean up whenever recordings array changes
-  useEffect(() => {
-    cleanupInvalidRecordings()
-  }, [recordings, cleanupInvalidRecordings])
-
-  // Log recordings on mount for debugging
+  // Log recordings for debugging (but don't trigger cleanup)
   useEffect(() => {
     console.log('Current recordings:', recordings)
     const invalidRecordings = recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('blob:'))
@@ -89,9 +86,9 @@ const RecordingInterface: React.FC = () => {
   // Clear only invalid recordings
   const clearInvalidRecordings = useCallback(() => {
     const initialCount = recordings.length
+    console.log(`Manual cleanup triggered. Initial count: ${initialCount}`)
     cleanupInvalidRecordings()
-    console.log(`Cleared invalid recordings. Initial: ${initialCount}, Current: ${recordings.length}`)
-  }, [recordings.length, cleanupInvalidRecordings])
+  }, [cleanupInvalidRecordings])
 
   const handleSaveRecording = async (title: string) => {
     if (audioBlob && user) {
@@ -117,7 +114,12 @@ const RecordingInterface: React.FC = () => {
           createdAt: new Date().toISOString()
         }
         
-        setRecordings(prev => [newRecording, ...prev])
+        console.log('Saving new recording:', newRecording)
+        setRecordings(prev => {
+          const updated = [newRecording, ...prev]
+          console.log('Updated recordings array:', updated)
+          return updated
+        })
         setShowForm(false)
         resetRecording()
         
@@ -220,8 +222,14 @@ const RecordingInterface: React.FC = () => {
             <h3 className="text-lg font-semibold text-yellow-800 mb-2">🔧 Debug Controls</h3>
             <p className="text-sm text-yellow-700 mb-3">
               Current recordings: {recordings.length} | 
-              Invalid URLs: {recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('blob:')).length}
+              Invalid URLs: {recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('blob:')).length} |
+              Valid URLs: {recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('http')).length}
             </p>
+            {recordings.length > 0 && (
+              <div className="text-xs text-yellow-600 mb-3">
+                Latest: {recordings[0]?.title} ({recordings[0]?.audioUrl?.startsWith('http') ? 'Valid' : 'Invalid'})
+              </div>
+            )}
             <div className="flex justify-center space-x-3">
               <button
                 onClick={clearInvalidRecordings}
