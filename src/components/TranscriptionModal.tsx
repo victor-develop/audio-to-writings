@@ -14,7 +14,8 @@ import {
   BookOpen,
   Headphones,
   PenTool,
-  Settings
+  Settings,
+  Heart
 } from 'lucide-react'
 import { predefinedPrompts, PredefinedPrompt } from '../data/predefinedPrompts'
 import { supabase } from '../lib/supabase'
@@ -59,6 +60,8 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
         return <PenTool className="w-5 h-5 text-orange-600" />
       case 'podcast-summary':
         return <Headphones className="w-5 h-5 text-pink-600" />
+      case 'redbook':
+        return <Heart className="w-5 h-5 text-red-500" />
       case 'custom-prompt':
         return <Settings className="w-5 h-5 text-gray-600" />
       default:
