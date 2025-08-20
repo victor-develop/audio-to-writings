@@ -75,6 +75,42 @@ const RecordingInterface: React.FC = () => {
     }
   }, [recordings])
 
+  // Add global debug functions to window object
+  useEffect(() => {
+    // @ts-ignore
+    window.showDebugControls = () => {
+      const debugElement = document.getElementById('debug-controls')
+      if (debugElement) {
+        debugElement.classList.remove('hidden')
+        console.log('Debug controls shown. Use hideDebugControls() to hide them.')
+      }
+    }
+    
+    // @ts-ignore
+    window.hideDebugControls = () => {
+      const debugElement = document.getElementById('debug-controls')
+      if (debugElement) {
+        debugElement.classList.add('hidden')
+        console.log('Debug controls hidden.')
+      }
+    }
+    
+    // @ts-ignore
+    window.getRecordingStats = () => {
+      const stats = {
+        total: recordings.length,
+        valid: recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('http')).length,
+        invalid: recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('blob:')).length,
+        recordings: recordings.map(r => ({ title: r.title, url: r.audioUrl, valid: r.audioUrl && r.audioUrl.startsWith('http') }))
+      }
+      console.table(stats.recordings)
+      console.log('Recording Stats:', stats)
+      return stats
+    }
+    
+    console.log('Debug functions available: showDebugControls(), hideDebugControls(), getRecordingStats()')
+  }, [recordings])
+
   // Force clear all recordings (for debugging)
   const forceClearAllRecordings = useCallback(() => {
     if (confirm('This will delete ALL recordings. Are you sure?')) {
@@ -211,12 +247,13 @@ const RecordingInterface: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Debug Controls - Remove this section after fixing the issue */}
+        {/* Debug Controls - Hidden by default, use console command to show */}
         <motion.div
+          id="debug-controls"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6"
+          className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6 hidden"
         >
           <div className="text-center">
             <h3 className="text-lg font-semibold text-yellow-800 mb-2">🔧 Debug Controls</h3>

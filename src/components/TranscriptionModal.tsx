@@ -279,13 +279,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                 </div>
               )}
 
-              {/* Selected Prompt Preview */}
-              {selectedPrompt.id !== 'custom-prompt' && (
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h5 className="font-medium text-blue-900 mb-2">Selected Prompt:</h5>
-                  <p className="text-sm text-blue-800 whitespace-pre-line">{selectedPrompt.prompt}</p>
-                </div>
-              )}
+
 
               {/* Error Display */}
               {error && (
