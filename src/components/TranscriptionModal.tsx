@@ -1,6 +1,21 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sparkles, Loader2, Copy, Check, Download } from 'lucide-react'
+import { 
+  X, 
+  Sparkles, 
+  Loader2, 
+  Copy, 
+  Check, 
+  Download,
+  Linkedin,
+  FileText,
+  Mic,
+  Users,
+  BookOpen,
+  Headphones,
+  PenTool,
+  Settings
+} from 'lucide-react'
 import { predefinedPrompts, PredefinedPrompt } from '../data/predefinedPrompts'
 import { supabase } from '../lib/supabase'
 import { Recording } from '../types/recording'
@@ -23,6 +38,30 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Function to get the appropriate icon for each prompt type
+  const getPromptIcon = (promptId: string) => {
+    switch (promptId) {
+      case 'linkedin-storyteller':
+        return <Linkedin className="w-5 h-5 text-blue-600" />
+      case 'business-article-writer':
+        return <FileText className="w-5 h-5 text-green-600" />
+      case 'basic-transcription':
+        return <Mic className="w-5 h-5 text-gray-600" />
+      case 'meeting-minutes':
+        return <Users className="w-5 h-5 text-purple-600" />
+      case 'interview-transcript':
+        return <BookOpen className="w-5 h-5 text-indigo-600" />
+      case 'lecture-notes':
+        return <PenTool className="w-5 h-5 text-orange-600" />
+      case 'podcast-summary':
+        return <Headphones className="w-5 h-5 text-pink-600" />
+      case 'custom-prompt':
+        return <Settings className="w-5 h-5 text-gray-600" />
+      default:
+        return <Sparkles className="w-5 h-5 text-purple-600" />
+    }
+  }
 
   const handleTranscribe = async () => {
     if (!recording.audioUrl) {
@@ -165,8 +204,15 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
-                      <div className="font-medium text-gray-900">{prompt.name}</div>
-                      <div className="text-sm text-gray-600 mt-1">{prompt.shortDescription}</div>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          {getPromptIcon(prompt.id)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{prompt.name}</div>
+                          <div className="text-sm text-gray-600 mt-1">{prompt.shortDescription}</div>
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -217,7 +263,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    <span>Start Transcription</span>
+                    <span>Start AI Writing</span>
                   </>
                 )}
               </button>
