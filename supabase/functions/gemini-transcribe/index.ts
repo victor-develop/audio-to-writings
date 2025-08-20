@@ -12,7 +12,20 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Add request ID for tracking
+  const requestId = crypto.randomUUID()
+  console.log(`[${requestId}] Starting request processing`)
+
   try {
+    // Validate request method
+    if (req.method !== 'POST') {
+      console.log(`[${requestId}] Invalid method: ${req.method}`)
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create a Supabase client with the Auth context of the function
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -37,9 +50,23 @@ serve(async (req) => {
       )
     }
 
-    const { audioUrl, prompt, recordingId } = await req.json()
+    // Parse and validate request body
+    let parsedBody
+    try {
+      parsedBody = await req.json()
+      console.log(`[${requestId}] Request body parsed successfully`)
+    } catch (parseError) {
+      console.error(`[${requestId}] Failed to parse request body:`, parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { audioUrl, prompt, recordingId } = parsedBody
 
     if (!audioUrl) {
+      console.log(`[${requestId}] Missing audioUrl`)
       return new Response(
         JSON.stringify({ error: 'Audio URL is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -47,11 +74,15 @@ serve(async (req) => {
     }
 
     if (!prompt) {
+      console.log(`[${requestId}] Missing prompt`)
       return new Response(
         JSON.stringify({ error: 'Prompt is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log(`[${requestId}] Processing audio URL: ${audioUrl}`)
+    console.log(`[${requestId}] Prompt length: ${prompt.length} characters`)
 
     // Get Gemini API key
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
@@ -185,13 +216,30 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error(`[${requestId}] Error:`, error)
+    
+    // Clean up any resources if needed
+    try {
+      // Force garbage collection if available
+      if (typeof globalThis.gc === 'function') {
+        globalThis.gc()
+      }
+    } catch (cleanupError) {
+      console.error(`[${requestId}] Cleanup error:`, cleanupError)
+    }
+    
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        requestId: requestId,
+        timestamp: new Date().toISOString()
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
+  } finally {
+    console.log(`[${requestId}] Request processing completed`)
   }
 })
