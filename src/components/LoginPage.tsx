@@ -66,6 +66,32 @@ const LoginPage: React.FC = () => {
           </div>
         </motion.div>
 
+        {/* Promotional Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="bg-gradient-to-r from-primary-500 to-accent-500 rounded-2xl p-4 mb-6 text-white shadow-lg"
+        >
+          <div className="text-center">
+            <h3 className="text-lg font-bold mb-2">🎉 产品推广期特别功能</h3>
+            <div className="grid grid-cols-1 gap-2 text-sm opacity-90">
+              <div className="flex items-center justify-center space-x-2">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                <span>LinkedIn专业写作</span>
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                <span>商业文章生成</span>
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                <span>AI智能转录</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Sign In Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

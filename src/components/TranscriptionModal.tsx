@@ -166,7 +166,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900">AI Writing Assistant</h3>
+              <h3 className="text-xl font-semibold text-gray-900">出口成章 AI 写作助手</h3>
             </div>
             <button
               onClick={onClose}
