@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, Square, Pause, Play, RotateCcw, Save } from 'lucide-react'
+import { Mic, Square, Pause, Play, Loader2 } from 'lucide-react'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useSupabaseStorage } from '../hooks/useSupabaseStorage'
 import { useAuth } from '../contexts/AuthContext'
 import { Recording } from '../types/recording'
-import RecordingForm from './RecordingForm'
+
 import RecordingHistory from './RecordingHistory'
 import AudioPlayer from './AudioPlayer'
 import TranscriptionModal from './TranscriptionModal'
@@ -27,11 +27,26 @@ const RecordingInterface: React.FC = () => {
     formatDuration
   } = useAudioRecorder()
 
-  const { uploadAudioFile, isUploading } = useSupabaseStorage()
+  const { uploadAudioFile } = useSupabaseStorage()
   const [recordings, setRecordings] = useLocalStorage<Recording[]>('recordings', [])
-  const [showForm, setShowForm] = useState(false)
+
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [playingRecording, setPlayingRecording] = useState<Recording | null>(null)
   const [transcribingRecording, setTranscribingRecording] = useState<Recording | null>(null)
+
+  // Generate default filename based on current date/time
+  const generateDefaultFilename = useCallback(() => {
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('zh-CN', { 
+      month: '2-digit', 
+      day: '2-digit' 
+    }).replace(/\//g, '月') + '日'
+    const timeStr = now.toLocaleTimeString('zh-CN', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+    return `录音 ${dateStr} ${timeStr}`
+  }, [])
 
   // Clean up recordings with invalid URLs (blob URLs, localhost, etc.)
   const cleanupInvalidRecordings = useCallback(() => {
@@ -61,10 +76,66 @@ const RecordingInterface: React.FC = () => {
     })
   }, [setRecordings])
 
+  // Auto-save function that triggers after recording stops
+  const autoSaveRecording = useCallback(async () => {
+    if (audioBlob && user) {
+      setIsAutoSaving(true)
+      try {
+        const defaultTitle = generateDefaultFilename()
+        
+        // Upload to Supabase Storage - NO FALLBACKS
+        const result = await uploadAudioFile(audioBlob, defaultTitle, user.id)
+        const { url, error } = result
+        
+        if (error) {
+          console.error('Failed to upload audio:', error)
+          throw new Error(`Failed to upload audio: ${error}`)
+        }
+        
+        if (!url) {
+          throw new Error('No URL returned from upload')
+        }
+        
+        // Only save if we have a valid Supabase URL
+        const newRecording: Recording = {
+          id: Date.now().toString(),
+          title: defaultTitle, // Auto-generated title
+          audioUrl: url,
+          duration,
+          createdAt: new Date().toISOString(),
+          storagePath: result.storagePath || undefined // Internal storage path
+        }
+        
+        console.log('Auto-saving new recording:', newRecording)
+        console.log('Storage path used:', result.storagePath)
+        setRecordings(prev => {
+          const updated = [newRecording, ...prev]
+          console.log('Updated recordings array:', updated)
+          return updated
+        })
+        resetRecording()
+        
+      } catch (err) {
+        console.error('Error auto-saving recording:', err)
+        alert(`Failed to save recording: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        // Don't save anything - user must try again
+      } finally {
+        setIsAutoSaving(false)
+      }
+    }
+  }, [audioBlob, user, generateDefaultFilename, uploadAudioFile, duration, setRecordings, resetRecording])
+
   // Clean up invalid recordings only on component mount
   useEffect(() => {
     cleanupInvalidRecordings()
   }, [cleanupInvalidRecordings])
+
+  // Auto-save when recording stops and we have audio
+  useEffect(() => {
+    if (audioBlob && !isRecording && !isPaused && user) {
+      autoSaveRecording()
+    }
+  }, [audioBlob, isRecording, isPaused, user, autoSaveRecording])
 
   // Log recordings for debugging (but don't trigger cleanup)
   useEffect(() => {
@@ -126,49 +197,7 @@ const RecordingInterface: React.FC = () => {
     cleanupInvalidRecordings()
   }, [cleanupInvalidRecordings])
 
-  const handleSaveRecording = async (title: string) => {
-    if (audioBlob && user) {
-      try {
-        // Upload to Supabase Storage - NO FALLBACKS
-        const result = await uploadAudioFile(audioBlob, title, user.id)
-        const { url, error } = result
-        
-        if (error) {
-          console.error('Failed to upload audio:', error)
-          throw new Error(`Failed to upload audio: ${error}`)
-        }
-        
-        if (!url) {
-          throw new Error('No URL returned from upload')
-        }
-        
-        // Only save if we have a valid Supabase URL
-        const newRecording: Recording = {
-          id: Date.now().toString(),
-          title, // User-friendly display alias (can be Chinese)
-          audioUrl: url,
-          duration,
-          createdAt: new Date().toISOString(),
-          storagePath: result.storagePath || undefined // Internal storage path
-        }
-        
-        console.log('Saving new recording:', newRecording)
-        console.log('Storage path used:', result.storagePath)
-        setRecordings(prev => {
-          const updated = [newRecording, ...prev]
-          console.log('Updated recordings array:', updated)
-          return updated
-        })
-        setShowForm(false)
-        resetRecording()
-        
-      } catch (err) {
-        console.error('Error saving recording:', err)
-        alert(`Failed to save recording: ${err instanceof Error ? err.message : 'Unknown error'}`)
-        // Don't save anything - user must try again
-      }
-    }
-  }
+
 
   const handleDeleteRecording = (id: string) => {
     setRecordings(prev => prev.filter(recording => recording.id !== id))
@@ -337,27 +366,32 @@ const RecordingInterface: React.FC = () => {
               )}
             </div>
 
-            {/* Action Buttons */}
-            {audioUrl && (
-              <div className="flex justify-center space-x-3">
+            {/* Auto-saving Status */}
+            {audioUrl && isAutoSaving && (
+              <div className="flex justify-center">
+                <div className="flex items-center space-x-3 bg-blue-50 text-blue-700 px-6 py-3 rounded-lg">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Loader2 className="w-5 h-5" />
+                  </motion.div>
+                  <span className="font-medium">Saving recording...</span>
+                </div>
+              </div>
+            )}
+
+            {/* New Recording Button */}
+            {!audioUrl && !isRecording && !isAutoSaving && (
+              <div className="flex justify-center">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowForm(true)}
+                  onClick={startRecording}
                   className="btn-primary flex items-center space-x-2"
-                  disabled={isUploading}
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{isUploading ? 'Uploading...' : 'Save & Process'}</span>
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={resetRecording}
-                  className="btn-secondary flex items-center space-x-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>New Voice</span>
+                  <Mic className="w-4 h-4" />
+                  <span>Start New Recording</span>
                 </motion.button>
               </div>
             )}
@@ -390,13 +424,7 @@ const RecordingInterface: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Recording Form Modal */}
-        {showForm && (
-          <RecordingForm
-            onSubmit={handleSaveRecording}
-            onCancel={() => setShowForm(false)}
-          />
-        )}
+
 
         {/* Audio Player Modal */}
         {playingRecording && (
