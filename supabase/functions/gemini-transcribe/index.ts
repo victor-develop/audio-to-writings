@@ -63,8 +63,10 @@ serve(async (req) => {
     }
 
     // Fetch the audio file from the URL
+    console.log('Fetching audio from URL:', audioUrl)
     const audioResponse = await fetch(audioUrl)
     if (!audioResponse.ok) {
+      console.error('Failed to fetch audio:', audioResponse.status, audioResponse.statusText)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch audio file' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,8 +74,19 @@ serve(async (req) => {
     }
 
     const audioBuffer = await audioResponse.arrayBuffer()
+    console.log('Audio buffer size:', audioBuffer.byteLength)
+    
     const audioBytes = new Uint8Array(audioBuffer)
-    const base64Audio = btoa(String.fromCharCode(...audioBytes))
+    
+    // Convert to base64 efficiently without stack overflow
+    console.log('Converting to base64...')
+    let base64Audio = ''
+    
+    // Use a more efficient approach that doesn't spread large arrays
+    for (let i = 0; i < audioBytes.length; i++) {
+      base64Audio += String.fromCharCode(audioBytes[i])
+    }
+    base64Audio = btoa(base64Audio)
 
     // Determine MIME type from URL or default to webm
     const mimeType = audioUrl.includes('.mp3') ? 'audio/mp3' : 
@@ -81,6 +94,7 @@ serve(async (req) => {
                      audioUrl.includes('.m4a') ? 'audio/mp4' : 'audio/webm'
 
     // Call Gemini API
+    console.log('Calling Gemini API with mime type:', mimeType)
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
     
     const requestBody = {
@@ -101,6 +115,8 @@ serve(async (req) => {
         }
       ]
     }
+    
+    console.log('Request body size:', JSON.stringify(requestBody).length, 'characters')
 
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
