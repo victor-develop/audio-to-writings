@@ -4,7 +4,6 @@ export interface Recording {
   audioUrl: string
   duration: number
   createdAt: Date | string
-  audioBlob?: Blob
 }
 
 export interface RecordingFormData {

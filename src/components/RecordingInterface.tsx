@@ -35,55 +35,96 @@ const RecordingInterface: React.FC = () => {
 
   // Clean up recordings with invalid URLs (blob URLs, localhost, etc.)
   const cleanupInvalidRecordings = useCallback(() => {
-    setRecordings(prev => prev.filter(recording => {
-      const isValidUrl = recording.audioUrl && 
-        !recording.audioUrl.startsWith('blob:') && 
-        !recording.audioUrl.includes('localhost') && 
-        !recording.audioUrl.includes('127.0.0.1') &&
-        (recording.audioUrl.startsWith('http') || recording.audioUrl.startsWith('https'))
+    setRecordings(prev => {
+      const validRecordings = prev.filter(recording => {
+        const isValidUrl = recording.audioUrl && 
+          !recording.audioUrl.startsWith('blob:') && 
+          !recording.audioUrl.includes('localhost') && 
+          !recording.audioUrl.includes('127.0.0.1') &&
+          (recording.audioUrl.startsWith('http') || recording.audioUrl.startsWith('https'))
+        
+        if (!isValidUrl) {
+          console.log('Removing recording with invalid URL:', recording.title, recording.audioUrl)
+        }
+        
+        return isValidUrl
+      })
       
-      if (!isValidUrl) {
-        console.log('Removing recording with invalid URL:', recording.title, recording.audioUrl)
+      // If we removed any recordings, log it
+      if (validRecordings.length !== prev.length) {
+        console.log(`Cleaned up ${prev.length - validRecordings.length} recordings with invalid URLs`)
       }
       
-      return isValidUrl
-    }))
+      return validRecordings
+    })
   }, [setRecordings])
 
-  // Clean up invalid recordings on component mount
+  // Clean up invalid recordings on component mount and whenever recordings change
   useEffect(() => {
     cleanupInvalidRecordings()
   }, [cleanupInvalidRecordings])
 
+  // Also clean up whenever recordings array changes
+  useEffect(() => {
+    cleanupInvalidRecordings()
+  }, [recordings, cleanupInvalidRecordings])
+
+  // Log recordings on mount for debugging
+  useEffect(() => {
+    console.log('Current recordings:', recordings)
+    const invalidRecordings = recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('blob:'))
+    if (invalidRecordings.length > 0) {
+      console.warn('Found recordings with blob URLs:', invalidRecordings)
+    }
+  }, [recordings])
+
+  // Force clear all recordings (for debugging)
+  const forceClearAllRecordings = useCallback(() => {
+    if (confirm('This will delete ALL recordings. Are you sure?')) {
+      setRecordings([])
+      console.log('All recordings cleared')
+    }
+  }, [setRecordings])
+
+  // Clear only invalid recordings
+  const clearInvalidRecordings = useCallback(() => {
+    const initialCount = recordings.length
+    cleanupInvalidRecordings()
+    console.log(`Cleared invalid recordings. Initial: ${initialCount}, Current: ${recordings.length}`)
+  }, [recordings.length, cleanupInvalidRecordings])
+
   const handleSaveRecording = async (title: string) => {
     if (audioBlob && user) {
       try {
-        // Upload to Supabase Storage
+        // Upload to Supabase Storage - NO FALLBACKS
         const { url, error } = await uploadAudioFile(audioBlob, title, user.id)
         
         if (error) {
           console.error('Failed to upload audio:', error)
-          // Don't fallback to local storage - blob URLs won't work with Edge Functions
           throw new Error(`Failed to upload audio: ${error}`)
-        } else if (url) {
-          // Save with Supabase URL
-          const newRecording: Recording = {
-            id: Date.now().toString(),
-            title,
-            audioUrl: url,
-            duration,
-            createdAt: new Date().toISOString(),
-            audioBlob: undefined // Don't store blob in memory for cloud recordings
-          }
-          setRecordings(prev => [newRecording, ...prev])
-          setShowForm(false)
-          resetRecording()
         }
+        
+        if (!url) {
+          throw new Error('No URL returned from upload')
+        }
+        
+        // Only save if we have a valid Supabase URL
+        const newRecording: Recording = {
+          id: Date.now().toString(),
+          title,
+          audioUrl: url,
+          duration,
+          createdAt: new Date().toISOString()
+        }
+        
+        setRecordings(prev => [newRecording, ...prev])
+        setShowForm(false)
+        resetRecording()
+        
       } catch (err) {
         console.error('Error saving recording:', err)
-        // Show error to user instead of falling back to local storage
         alert(`Failed to save recording: ${err instanceof Error ? err.message : 'Unknown error'}`)
-        // Don't save the recording - it won't work with transcription anyway
+        // Don't save anything - user must try again
       }
     }
   }
@@ -101,20 +142,14 @@ const RecordingInterface: React.FC = () => {
   }
 
   const handleDownloadRecording = async (recording: Recording) => {
-    if (recording.audioBlob) {
-      // Local recording - download directly
-      const url = URL.createObjectURL(recording.audioBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${recording.title}.webm`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } else if (recording.audioUrl && recording.audioUrl.startsWith('http')) {
-      // Cloud recording - fetch and download
+    // Only handle Supabase storage recordings - no blob fallbacks
+    if (recording.audioUrl && recording.audioUrl.startsWith('http')) {
       try {
         const response = await fetch(recording.audioUrl)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch audio: ${response.status}`)
+        }
+        
         const blob = await response.blob()
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -125,8 +160,11 @@ const RecordingInterface: React.FC = () => {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
       } catch (error) {
-        console.error('Failed to download cloud recording:', error)
+        console.error('Failed to download recording:', error)
+        alert(`Failed to download recording: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
+    } else {
+      alert('This recording cannot be downloaded. Please re-record and save.')
     }
   }
 
@@ -167,6 +205,36 @@ const RecordingInterface: React.FC = () => {
                 <span className="w-2 h-2 bg-white rounded-full"></span>
                 <span>云端存储同步</span>
               </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Debug Controls - Remove this section after fixing the issue */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6"
+        >
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-yellow-800 mb-2">🔧 Debug Controls</h3>
+            <p className="text-sm text-yellow-700 mb-3">
+              Current recordings: {recordings.length} | 
+              Invalid URLs: {recordings.filter(r => r.audioUrl && r.audioUrl.startsWith('blob:')).length}
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={clearInvalidRecordings}
+                className="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-sm font-medium rounded-lg transition-colors duration-200"
+              >
+                Clear Invalid Recordings
+              </button>
+              <button
+                onClick={forceClearAllRecordings}
+                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-sm font-medium rounded-lg transition-colors duration-200"
+              >
+                Clear ALL Recordings
+              </button>
             </div>
           </div>
         </motion.div>
