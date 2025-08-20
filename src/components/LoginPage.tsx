@@ -32,8 +32,9 @@ const LoginPage: React.FC = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
             <Mic className="w-8 h-8 text-primary-600" />
           </div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">AudioPen Pro</h1>
-        <p className="text-gray-600">Transform your voice into professional writing with AI</p>
+                  <h1 className="text-4xl font-bold text-gray-900 mb-3">出口成章 AI</h1>
+        <p className="text-xl text-primary-600 font-semibold mb-2">把你的每一次表达，都沉淀为穿越时间的内容。</p>
+        <p className="text-gray-600">点击录音，即刻将灵感转化为文章、笔记与专业洞察。</p>
         </motion.div>
 
         {/* Features */}
@@ -48,7 +49,7 @@ const LoginPage: React.FC = () => {
               <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
                 <Mic className="w-4 h-4 text-primary-600" />
               </div>
-              <span className="text-gray-700">AI-powered voice-to-text conversion</span>
+              <span className="text-gray-700">AI驱动的语音转文字转换</span>
             </div>
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-accent-100 rounded-lg flex items-center justify-center">

@@ -135,8 +135,36 @@ const RecordingInterface: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">AudioPen Pro</h1>
-          <p className="text-gray-600">Transform your voice into professional writing with AI</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">出口成章 AI</h1>
+          <p className="text-xl text-primary-600 font-semibold mb-2">把你的每一次表达，都沉淀为穿越时间的内容。</p>
+          <p className="text-gray-600">点击录音，即刻将灵感转化为文章、笔记与专业洞察。</p>
+        </motion.div>
+
+        {/* Promotional Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-gradient-to-r from-primary-500 to-accent-500 rounded-2xl p-6 mb-8 text-white shadow-lg"
+        >
+          <div className="text-center">
+            <h3 className="text-2xl font-bold mb-2">🎉 产品推广期特别优惠</h3>
+            <p className="text-lg opacity-90 mb-3">体验AI驱动的语音转文字革命</p>
+            <div className="flex flex-wrap justify-center gap-4 text-sm opacity-80">
+              <span className="flex items-center space-x-1">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                <span>专业级语音识别</span>
+              </span>
+              <span className="flex items-center space-x-1">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                <span>多场景写作模板</span>
+              </span>
+              <span className="flex items-center space-x-1">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                <span>云端存储同步</span>
+              </span>
+            </div>
+          </div>
         </motion.div>
 
         <div className="grid lg:grid-cols-2 gap-8">

@@ -1,4 +1,6 @@
-# AudioPen Pro
+# 出口成章 AI (Chu Kou Cheng Zhang AI)
+
+把你的每一次表达，都沉淀为穿越时间的内容。
 
 A professional audio-to-writing application built with Vite, TypeScript, and Supabase. Transform your voice into professional writing with AI-powered transcription and content generation.
 
@@ -33,7 +35,7 @@ A professional audio-to-writing application built with Vite, TypeScript, and Sup
 
 ```bash
 git clone <your-repo-url>
-cd audiopen-pro
+cd chu-kou-cheng-zhang-ai
 npm install
 ```
 
