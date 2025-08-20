@@ -94,12 +94,50 @@ serve(async (req) => {
     }
 
     // Fetch the audio file from the URL
-    console.log('Fetching audio from URL:', audioUrl)
-    const audioResponse = await fetch(audioUrl)
-    if (!audioResponse.ok) {
-      console.error('Failed to fetch audio:', audioResponse.status, audioResponse.statusText)
+    console.log(`[${requestId}] Fetching audio from URL: ${audioUrl}`)
+    
+    // Check if this is a blob URL or external URL that might not be accessible
+    if (audioUrl.startsWith('blob:') || audioUrl.includes('localhost') || audioUrl.includes('127.0.0.1')) {
+      console.error(`[${requestId}] Cannot access blob or local URLs from Edge Function: ${audioUrl}`)
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch audio file' }),
+        JSON.stringify({ 
+          error: 'Cannot access blob or local URLs from Edge Function. Please ensure the audio file is uploaded to a publicly accessible URL.',
+          details: 'Edge Functions can only access public HTTPS URLs'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    // Check if this is a Supabase Storage URL (should be accessible)
+    const isSupabaseStorage = audioUrl.includes('supabase.co') && audioUrl.includes('storage')
+    console.log(`[${requestId}] Is Supabase Storage URL: ${isSupabaseStorage}`)
+    
+    let audioResponse
+    try {
+      audioResponse = await fetch(audioUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'AudioPen-Pro-EdgeFunction/1.0'
+        }
+      })
+    } catch (fetchError) {
+      console.error(`[${requestId}] Fetch error:`, fetchError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to fetch audio file',
+          details: fetchError.message
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (!audioResponse.ok) {
+      console.error(`[${requestId}] Failed to fetch audio:`, audioResponse.status, audioResponse.statusText)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to fetch audio file',
+          details: `HTTP ${audioResponse.status}: ${audioResponse.statusText}`
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
