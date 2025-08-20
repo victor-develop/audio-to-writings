@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { migrateRecordingData } from '../utils/dataMigration'
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   // State to store our value
@@ -9,7 +10,16 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     }
     try {
       const item = window.localStorage.getItem(key)
-      return item ? JSON.parse(item) : initialValue
+      if (!item) return initialValue
+      
+      const parsed = JSON.parse(item)
+      
+      // Handle date conversion for recordings
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].createdAt) {
+        return migrateRecordingData(parsed)
+      }
+      
+      return parsed
     } catch (error) {
       console.log(error)
       return initialValue

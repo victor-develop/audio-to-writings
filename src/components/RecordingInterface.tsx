@@ -45,7 +45,7 @@ const RecordingInterface: React.FC = () => {
             title,
             audioUrl: audioUrl || '',
             duration,
-            createdAt: new Date(),
+            createdAt: new Date().toISOString(),
             audioBlob
           }
           setRecordings(prev => [newRecording, ...prev])
@@ -56,7 +56,7 @@ const RecordingInterface: React.FC = () => {
             title,
             audioUrl: url,
             duration,
-            createdAt: new Date(),
+            createdAt: new Date().toISOString(),
             audioBlob: undefined // Don't store blob in memory for cloud recordings
           }
           setRecordings(prev => [newRecording, ...prev])
@@ -72,7 +72,7 @@ const RecordingInterface: React.FC = () => {
           title,
           audioUrl: audioUrl || '',
           duration,
-          createdAt: new Date(),
+          createdAt: new Date().toISOString(),
           audioBlob
         }
         setRecordings(prev => [newRecording, ...prev])

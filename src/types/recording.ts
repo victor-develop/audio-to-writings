@@ -3,7 +3,7 @@ export interface Recording {
   title: string
   audioUrl: string
   duration: number
-  createdAt: Date
+  createdAt: Date | string
   audioBlob?: Blob
 }
 
