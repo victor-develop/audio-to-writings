@@ -198,9 +198,42 @@ serve(async (req) => {
     if (!geminiResponse.ok) {
       const errorData = await geminiResponse.json()
       console.error('Gemini API Error:', errorData)
+      
+      // Handle specific Gemini API error cases
+      let errorMessage = 'Failed to process audio with Gemini API'
+      let statusCode = 500
+      
+      if (errorData.error) {
+        const geminiError = errorData.error
+        
+        if (geminiError.code === 503 && geminiError.status === 'UNAVAILABLE') {
+          errorMessage = 'Gemini API is currently overloaded. Please try again in 1 minute.'
+          statusCode = 503
+        } else if (geminiError.code === 429) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.'
+          statusCode = 429
+        } else if (geminiError.code === 400) {
+          errorMessage = 'Invalid request to Gemini API. Please check your audio file and try again.'
+          statusCode = 400
+        } else if (geminiError.code === 401) {
+          errorMessage = 'Gemini API authentication failed. Please check your API key.'
+          statusCode = 401
+        } else if (geminiError.code === 403) {
+          errorMessage = 'Access denied to Gemini API. Please check your API permissions.'
+          statusCode = 403
+        } else if (geminiError.message) {
+          errorMessage = `Gemini API Error: ${geminiError.message}`
+          statusCode = geminiError.code || 500
+        }
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Failed to process audio with Gemini API' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: errorMessage,
+          details: errorData,
+          retryAfter: statusCode === 503 ? 60 : undefined // Suggest 1 minute retry for overload
+        }),
+        { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

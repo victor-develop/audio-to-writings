@@ -38,6 +38,9 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [retryAfter, setRetryAfter] = useState<number | null>(null)
+  const [canRetry, setCanRetry] = useState(false)
 
   // Function to get the appropriate icon for each prompt type
   const getPromptIcon = (promptId: string) => {
@@ -69,6 +72,15 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
       return
     }
 
+    // Validate that the audio URL is accessible by Edge Functions
+    if (recording.audioUrl.startsWith('blob:') || 
+        recording.audioUrl.includes('localhost') || 
+        recording.audioUrl.includes('127.0.0.1') ||
+        !recording.audioUrl.startsWith('http')) {
+      setError('This recording has an invalid audio URL that cannot be processed. Please re-record and save the audio file.')
+      return
+    }
+
     const promptToUse = selectedPrompt.id === 'custom-prompt' ? customPrompt : selectedPrompt.prompt
     
     if (!promptToUse.trim()) {
@@ -78,6 +90,8 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
 
     setIsProcessing(true)
     setError(null)
+    setRetryAfter(null)
+    setCanRetry(false)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -100,7 +114,18 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to transcribe audio')
+        
+        // Handle specific error cases
+        if (response.status === 503 && errorData.retryAfter) {
+          setRetryAfter(errorData.retryAfter)
+          setCanRetry(true)
+          throw new Error(errorData.error || 'Gemini API is overloaded. Please try again later.')
+        } else if (response.status === 429) {
+          setCanRetry(true)
+          throw new Error(errorData.error || 'Rate limit exceeded. Please wait before trying again.')
+        } else {
+          throw new Error(errorData.error || 'Failed to transcribe audio')
+        }
       }
 
       const result = await response.json()
@@ -109,12 +134,32 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
         prompt: promptToUse,
         timestamp: result.timestamp
       })
+      setRetryCount(0) // Reset retry count on success
     } catch (err) {
       console.error('Transcription error:', err)
       setError(err instanceof Error ? err.message : 'Failed to transcribe audio')
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handleRetry = async () => {
+    if (retryAfter && retryAfter > 0) {
+      // Wait for the suggested retry time
+      setError(`Please wait ${retryAfter} seconds before retrying...`)
+      setTimeout(() => {
+        setError(null)
+        setRetryAfter(null)
+        setCanRetry(true)
+      }, retryAfter * 1000)
+      return
+    }
+    
+    setRetryCount(prev => prev + 1)
+    setError(null)
+    setRetryAfter(null)
+    setCanRetry(false)
+    await handleTranscribe()
   }
 
   const copyToClipboard = async () => {
@@ -245,7 +290,35 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
               {/* Error Display */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-red-800 text-sm">{error}</p>
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
+                        <span className="text-red-600 text-xs">!</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-red-800 text-sm">{error}</p>
+                      {canRetry && (
+                        <div className="mt-3 flex items-center space-x-3">
+                          <button
+                            onClick={handleRetry}
+                            disabled={isProcessing || (retryAfter !== null && retryAfter > 0)}
+                            className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {retryAfter && retryAfter > 0 
+                              ? `Wait ${retryAfter}s` 
+                              : `Retry (${retryCount + 1})`
+                            }
+                          </button>
+                          {retryCount > 0 && (
+                            <span className="text-xs text-red-600">
+                              Retry attempt {retryCount}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -318,6 +391,9 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                   onClick={() => {
                     setTranscriptionResult(null)
                     setError(null)
+                    setRetryCount(0)
+                    setRetryAfter(null)
+                    setCanRetry(false)
                   }}
                   className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200"
                 >

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Mic, Square, Pause, Play, RotateCcw, Save } from 'lucide-react'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
@@ -33,6 +33,28 @@ const RecordingInterface: React.FC = () => {
   const [playingRecording, setPlayingRecording] = useState<Recording | null>(null)
   const [transcribingRecording, setTranscribingRecording] = useState<Recording | null>(null)
 
+  // Clean up recordings with invalid URLs (blob URLs, localhost, etc.)
+  const cleanupInvalidRecordings = useCallback(() => {
+    setRecordings(prev => prev.filter(recording => {
+      const isValidUrl = recording.audioUrl && 
+        !recording.audioUrl.startsWith('blob:') && 
+        !recording.audioUrl.includes('localhost') && 
+        !recording.audioUrl.includes('127.0.0.1') &&
+        (recording.audioUrl.startsWith('http') || recording.audioUrl.startsWith('https'))
+      
+      if (!isValidUrl) {
+        console.log('Removing recording with invalid URL:', recording.title, recording.audioUrl)
+      }
+      
+      return isValidUrl
+    }))
+  }, [setRecordings])
+
+  // Clean up invalid recordings on component mount
+  useEffect(() => {
+    cleanupInvalidRecordings()
+  }, [cleanupInvalidRecordings])
+
   const handleSaveRecording = async (title: string) => {
     if (audioBlob && user) {
       try {
@@ -41,16 +63,8 @@ const RecordingInterface: React.FC = () => {
         
         if (error) {
           console.error('Failed to upload audio:', error)
-          // Fallback to local storage if upload fails
-          const newRecording: Recording = {
-            id: Date.now().toString(),
-            title,
-            audioUrl: audioUrl || '',
-            duration,
-            createdAt: new Date().toISOString(),
-            audioBlob
-          }
-          setRecordings(prev => [newRecording, ...prev])
+          // Don't fallback to local storage - blob URLs won't work with Edge Functions
+          throw new Error(`Failed to upload audio: ${error}`)
         } else if (url) {
           // Save with Supabase URL
           const newRecording: Recording = {
@@ -62,24 +76,14 @@ const RecordingInterface: React.FC = () => {
             audioBlob: undefined // Don't store blob in memory for cloud recordings
           }
           setRecordings(prev => [newRecording, ...prev])
+          setShowForm(false)
+          resetRecording()
         }
-        
-        setShowForm(false)
-        resetRecording()
       } catch (err) {
         console.error('Error saving recording:', err)
-        // Fallback to local storage
-        const newRecording: Recording = {
-          id: Date.now().toString(),
-          title,
-          audioUrl: audioUrl || '',
-          duration,
-          createdAt: new Date().toISOString(),
-          audioBlob
-        }
-        setRecordings(prev => [newRecording, ...prev])
-        setShowForm(false)
-        resetRecording()
+        // Show error to user instead of falling back to local storage
+        alert(`Failed to save recording: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        // Don't save the recording - it won't work with transcription anyway
       }
     }
   }
