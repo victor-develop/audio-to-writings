@@ -16,6 +16,7 @@ export interface RecordingHistoryProps {
   onPlay: (recording: Recording) => void
   onDelete: (id: string) => void
   onDownload: (recording: Recording) => void
+  onTranscribe: (recording: Recording) => void
 }
 
 export interface AudioPlayerProps {

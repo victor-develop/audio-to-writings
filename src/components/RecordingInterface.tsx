@@ -9,6 +9,7 @@ import { Recording } from '../types/recording'
 import RecordingForm from './RecordingForm'
 import RecordingHistory from './RecordingHistory'
 import AudioPlayer from './AudioPlayer'
+import TranscriptionModal from './TranscriptionModal'
 
 const RecordingInterface: React.FC = () => {
   const { user } = useAuth()
@@ -30,6 +31,7 @@ const RecordingInterface: React.FC = () => {
   const [recordings, setRecordings] = useLocalStorage<Recording[]>('recordings', [])
   const [showForm, setShowForm] = useState(false)
   const [playingRecording, setPlayingRecording] = useState<Recording | null>(null)
+  const [transcribingRecording, setTranscribingRecording] = useState<Recording | null>(null)
 
   const handleSaveRecording = async (title: string) => {
     if (audioBlob && user) {
@@ -88,6 +90,10 @@ const RecordingInterface: React.FC = () => {
 
   const handlePlayRecording = (recording: Recording) => {
     setPlayingRecording(recording)
+  }
+
+  const handleTranscribeRecording = (recording: Recording) => {
+    setTranscribingRecording(recording)
   }
 
   const handleDownloadRecording = async (recording: Recording) => {
@@ -245,6 +251,7 @@ const RecordingInterface: React.FC = () => {
                 onPlay={handlePlayRecording}
                 onDelete={handleDeleteRecording}
                 onDownload={handleDownloadRecording}
+                onTranscribe={handleTranscribeRecording}
               />
             )}
           </motion.div>
@@ -263,6 +270,14 @@ const RecordingInterface: React.FC = () => {
           <AudioPlayer
             audioUrl={playingRecording.audioUrl}
             onClose={() => setPlayingRecording(null)}
+          />
+        )}
+
+        {/* Transcription Modal */}
+        {transcribingRecording && (
+          <TranscriptionModal
+            recording={transcribingRecording}
+            onClose={() => setTranscribingRecording(null)}
           />
         )}
       </div>

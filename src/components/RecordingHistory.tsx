@@ -1,13 +1,14 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Play, Trash2, Download, Clock, Calendar } from 'lucide-react'
+import { Play, Trash2, Download, Clock, Calendar, Sparkles } from 'lucide-react'
 import { RecordingHistoryProps } from '../types/recording'
 
 const RecordingHistory: React.FC<RecordingHistoryProps> = ({
   recordings,
   onPlay,
   onDelete,
-  onDownload
+  onDownload,
+  onTranscribe
 }) => {
   const formatDate = (date: Date | string) => {
     try {
@@ -74,6 +75,16 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
                 title="Play recording"
               >
                 <Play className="w-4 h-4" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onTranscribe(recording)}
+                className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
+                title="AI Transcription"
+              >
+                <Sparkles className="w-4 h-4" />
               </motion.button>
               
               <motion.button
