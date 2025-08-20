@@ -58,6 +58,9 @@ This guide will walk you through deploying your Voice Recorder Pro application t
 1. In your Supabase dashboard, go to **SQL Editor**
 2. Copy and paste the contents of `supabase/migrations/20240101000000_create_recordings_table.sql`
 3. Click **Run** to execute the migration
+4. Copy and paste the contents of `supabase/migrations/20240101000001_create_storage_bucket.sql`
+5. Click **Run** to execute the storage migration
+6. **Important**: Configure storage policies manually in the dashboard (see STORAGE_SETUP.md)
 
 ### 1.6 Deploy Edge Functions
 

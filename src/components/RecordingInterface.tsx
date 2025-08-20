@@ -3,12 +3,15 @@ import { motion } from 'framer-motion'
 import { Mic, Square, Pause, Play, RotateCcw, Save } from 'lucide-react'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { useSupabaseStorage } from '../hooks/useSupabaseStorage'
+import { useAuth } from '../contexts/AuthContext'
 import { Recording } from '../types/recording'
 import RecordingForm from './RecordingForm'
 import RecordingHistory from './RecordingHistory'
 import AudioPlayer from './AudioPlayer'
 
 const RecordingInterface: React.FC = () => {
+  const { user } = useAuth()
   const {
     isRecording,
     isPaused,
@@ -23,24 +26,59 @@ const RecordingInterface: React.FC = () => {
     formatDuration
   } = useAudioRecorder()
 
+  const { uploadAudioFile, isUploading } = useSupabaseStorage()
   const [recordings, setRecordings] = useLocalStorage<Recording[]>('recordings', [])
   const [showForm, setShowForm] = useState(false)
   const [playingRecording, setPlayingRecording] = useState<Recording | null>(null)
 
-  const handleSaveRecording = (title: string) => {
-    if (audioBlob && audioUrl) {
-      const newRecording: Recording = {
-        id: Date.now().toString(),
-        title,
-        audioUrl,
-        duration,
-        createdAt: new Date(),
-        audioBlob
+  const handleSaveRecording = async (title: string) => {
+    if (audioBlob && user) {
+      try {
+        // Upload to Supabase Storage
+        const { url, error } = await uploadAudioFile(audioBlob, title, user.id)
+        
+        if (error) {
+          console.error('Failed to upload audio:', error)
+          // Fallback to local storage if upload fails
+          const newRecording: Recording = {
+            id: Date.now().toString(),
+            title,
+            audioUrl: audioUrl || '',
+            duration,
+            createdAt: new Date(),
+            audioBlob
+          }
+          setRecordings(prev => [newRecording, ...prev])
+        } else if (url) {
+          // Save with Supabase URL
+          const newRecording: Recording = {
+            id: Date.now().toString(),
+            title,
+            audioUrl: url,
+            duration,
+            createdAt: new Date(),
+            audioBlob: undefined // Don't store blob in memory for cloud recordings
+          }
+          setRecordings(prev => [newRecording, ...prev])
+        }
+        
+        setShowForm(false)
+        resetRecording()
+      } catch (err) {
+        console.error('Error saving recording:', err)
+        // Fallback to local storage
+        const newRecording: Recording = {
+          id: Date.now().toString(),
+          title,
+          audioUrl: audioUrl || '',
+          duration,
+          createdAt: new Date(),
+          audioBlob
+        }
+        setRecordings(prev => [newRecording, ...prev])
+        setShowForm(false)
+        resetRecording()
       }
-      
-      setRecordings(prev => [newRecording, ...prev])
-      setShowForm(false)
-      resetRecording()
     }
   }
 
@@ -52,8 +90,9 @@ const RecordingInterface: React.FC = () => {
     setPlayingRecording(recording)
   }
 
-  const handleDownloadRecording = (recording: Recording) => {
+  const handleDownloadRecording = async (recording: Recording) => {
     if (recording.audioBlob) {
+      // Local recording - download directly
       const url = URL.createObjectURL(recording.audioBlob)
       const a = document.createElement('a')
       a.href = url
@@ -62,6 +101,22 @@ const RecordingInterface: React.FC = () => {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+    } else if (recording.audioUrl && recording.audioUrl.startsWith('http')) {
+      // Cloud recording - fetch and download
+      try {
+        const response = await fetch(recording.audioUrl)
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${recording.title}.webm`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (error) {
+        console.error('Failed to download cloud recording:', error)
+      }
     }
   }
 
@@ -152,9 +207,10 @@ const RecordingInterface: React.FC = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowForm(true)}
                   className="btn-primary flex items-center space-x-2"
+                  disabled={isUploading}
                 >
                   <Save className="w-4 h-4" />
-                  <span>Save Recording</span>
+                  <span>{isUploading ? 'Uploading...' : 'Save Recording'}</span>
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
