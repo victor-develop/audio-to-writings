@@ -220,32 +220,7 @@ const RecordingInterface: React.FC = () => {
           <p className="text-gray-600">点击录音，即刻将灵感转化为文章、笔记与专业洞察。</p>
         </motion.div>
 
-        {/* Promotional Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-r from-primary-500 to-accent-500 rounded-2xl p-6 mb-8 text-white shadow-lg"
-        >
-          <div className="text-center">
-            <h3 className="text-2xl font-bold mb-2">🎉 产品推广期特别优惠</h3>
-            <p className="text-lg opacity-90 mb-3">体验AI驱动的语音转文字革命</p>
-            <div className="flex flex-wrap justify-center gap-4 text-sm opacity-80">
-              <span className="flex items-center space-x-1">
-                <span className="w-2 h-2 bg-white rounded-full"></span>
-                <span>专业级语音识别</span>
-              </span>
-              <span className="flex items-center space-x-1">
-                <span className="w-2 h-2 bg-white rounded-full"></span>
-                <span>多场景写作模板</span>
-              </span>
-              <span className="flex items-center space-x-1">
-                <span className="w-2 h-2 bg-white rounded-full"></span>
-                <span>云端存储同步</span>
-              </span>
-            </div>
-          </div>
-        </motion.div>
+
 
         {/* Debug Controls - Hidden by default, use console command to show */}
         <motion.div
