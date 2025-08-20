@@ -16,11 +16,21 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
     if (!audio) return
 
     const handleLoadedMetadata = () => {
-      setDuration(audio.duration)
+      // Validate duration before setting it
+      const duration = audio.duration
+      if (isFinite(duration) && !isNaN(duration) && duration > 0) {
+        setDuration(duration)
+      } else {
+        console.warn('Invalid audio duration:', duration)
+        setDuration(0)
+      }
     }
 
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime)
+      const currentTime = audio.currentTime
+      if (isFinite(currentTime) && !isNaN(currentTime) && currentTime >= 0) {
+        setCurrentTime(currentTime)
+      }
     }
 
     const handleEnded = () => {
@@ -28,14 +38,22 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
       setCurrentTime(0)
     }
 
+    const handleError = (event: Event) => {
+      console.error('Audio error:', event)
+      setDuration(0)
+      setCurrentTime(0)
+    }
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata)
     audio.addEventListener('timeupdate', handleTimeUpdate)
     audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('error', handleError)
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('error', handleError)
     }
   }, [])
 
@@ -56,17 +74,21 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
     if (!audio) return
 
     const newTime = parseFloat(e.target.value)
-    audio.currentTime = newTime
-    setCurrentTime(newTime)
+    if (isFinite(newTime) && !isNaN(newTime) && newTime >= 0) {
+      audio.currentTime = newTime
+      setCurrentTime(newTime)
+    }
   }
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value)
-    setVolume(newVolume)
-    if (audioRef.current) {
-      audioRef.current.volume = newVolume
+    if (isFinite(newVolume) && !isNaN(newVolume) && newVolume >= 0 && newVolume <= 1) {
+      setVolume(newVolume)
+      if (audioRef.current) {
+        audioRef.current.volume = newVolume
+      }
+      setIsMuted(newVolume === 0)
     }
-    setIsMuted(newVolume === 0)
   }
 
   const toggleMute = () => {
@@ -83,6 +105,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
   }
 
   const formatTime = (time: number) => {
+    // Handle invalid time values
+    if (!isFinite(time) || isNaN(time) || time < 0) {
+      return '0:00'
+    }
+    
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
@@ -115,7 +142,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
             </button>
           </div>
 
-          <audio ref={audioRef} src={audioUrl} preload="metadata" />
+          <audio 
+            ref={audioRef} 
+            src={audioUrl} 
+            preload="metadata"
+            onError={(e) => {
+              console.error('Audio failed to load:', e)
+              setDuration(0)
+            }}
+          />
 
           {/* Play/Pause Button */}
           <div className="flex justify-center mb-6">
