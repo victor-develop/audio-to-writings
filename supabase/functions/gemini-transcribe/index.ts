@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Gemini File API base URL
+const GEMINI_FILE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -167,27 +170,91 @@ serve(async (req) => {
     }
 
     const audioBuffer = await audioResponse.arrayBuffer()
-    console.log('Audio buffer size:', audioBuffer.byteLength)
+    console.log(`[${requestId}] Audio buffer size:`, audioBuffer.byteLength)
     
     const audioBytes = new Uint8Array(audioBuffer)
     
-    // Convert to base64 efficiently without stack overflow
-    console.log('Converting to base64...')
-    let base64Audio = ''
-    
-    // Use a more efficient approach that doesn't spread large arrays
-    for (let i = 0; i < audioBytes.length; i++) {
-      base64Audio += String.fromCharCode(audioBytes[i])
-    }
-    base64Audio = btoa(base64Audio)
-
     // Determine MIME type from URL or default to webm
     const mimeType = audioUrl.includes('.mp3') ? 'audio/mp3' : 
                      audioUrl.includes('.wav') ? 'audio/wav' : 
                      audioUrl.includes('.m4a') ? 'audio/mp4' : 'audio/webm'
 
-    // Call Gemini API
-    console.log('Calling Gemini API with mime type:', mimeType)
+    console.log(`[${requestId}] Using MIME type: ${mimeType}`)
+
+    // Step 1: Upload file to Gemini File API using resumable upload
+    console.log(`[${requestId}] Starting file upload to Gemini File API...`)
+    
+    let fileUri: string
+    try {
+      // Initial resumable request to get upload URL
+      const uploadStartUrl = `${GEMINI_FILE_API_BASE}/upload/v1beta/files`
+      const uploadStartResponse = await fetch(uploadStartUrl, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': GEMINI_API_KEY,
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'start',
+          'X-Goog-Upload-Header-Content-Length': audioBuffer.byteLength.toString(),
+          'X-Goog-Upload-Header-Content-Type': mimeType,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          file: {
+            display_name: `audio_${Date.now()}`
+          }
+        })
+      })
+
+      if (!uploadStartResponse.ok) {
+        const errorData = await uploadStartResponse.json()
+        console.error(`[${requestId}] File upload start failed:`, errorData)
+        throw new Error(`File upload start failed: ${uploadStartResponse.status} ${uploadStartResponse.statusText}`)
+      }
+
+      // Extract upload URL from response headers
+      const uploadUrl = uploadStartResponse.headers.get('x-goog-upload-url')
+      if (!uploadUrl) {
+        throw new Error('No upload URL received from Gemini File API')
+      }
+
+      console.log(`[${requestId}] Got upload URL:`, uploadUrl)
+
+      // Upload the actual file bytes
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Length': audioBuffer.byteLength.toString(),
+          'X-Goog-Upload-Offset': '0',
+          'X-Goog-Upload-Command': 'upload, finalize'
+        },
+        body: audioBytes
+      })
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json()
+        console.error(`[${requestId}] File upload failed:`, errorData)
+        throw new Error(`File upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
+      }
+
+      const fileInfo = await uploadResponse.json()
+      fileUri = fileInfo.file.uri
+      
+      console.log(`[${requestId}] File uploaded successfully. URI:`, fileUri)
+      
+    } catch (uploadError) {
+      console.error(`[${requestId}] File upload error:`, uploadError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to upload audio file to Gemini File API',
+          details: uploadError.message
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Step 2: Generate content using the uploaded file
+    console.log(`[${requestId}] Calling Gemini API with file URI:`, fileUri)
+    
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
     
     const requestBody = {
@@ -196,9 +263,9 @@ serve(async (req) => {
           role: 'user',
           parts: [
             {
-              inline_data: {
+              file_data: {
                 mime_type: mimeType,
-                data: base64Audio,
+                file_uri: fileUri
               }
             },
             {
@@ -209,7 +276,7 @@ serve(async (req) => {
       ]
     }
     
-    console.log('Request body size:', JSON.stringify(requestBody).length, 'characters')
+    console.log(`[${requestId}] Request body size:`, JSON.stringify(requestBody).length, 'characters')
 
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
@@ -221,7 +288,7 @@ serve(async (req) => {
 
     if (!geminiResponse.ok) {
       const errorData = await geminiResponse.json()
-      console.error('Gemini API Error:', errorData)
+      console.error(`[${requestId}] Gemini API Error:`, errorData)
       
       // Handle specific Gemini API error cases
       let errorMessage = 'Failed to process audio with Gemini API'
@@ -286,13 +353,26 @@ serve(async (req) => {
           })
 
         if (dbError) {
-          console.error('Database error:', dbError)
+          console.error(`[${requestId}] Database error:`, dbError)
           // Don't fail the request if database save fails
         }
       } catch (dbError) {
-        console.error('Database save error:', dbError)
+        console.error(`[${requestId}] Database save error:`, dbError)
         // Don't fail the request if database save fails
       }
+    }
+
+    // Clean up: Delete the uploaded file (optional, as files auto-delete after 48 hours)
+    try {
+      const fileId = fileUri.split('/').pop()
+      if (fileId) {
+        const deleteUrl = `${GEMINI_FILE_API_BASE}/files/${fileId}?key=${GEMINI_API_KEY}`
+        await fetch(deleteUrl, { method: 'DELETE' })
+        console.log(`[${requestId}] Cleaned up uploaded file:`, fileId)
+      }
+    } catch (cleanupError) {
+      console.error(`[${requestId}] File cleanup error:`, cleanupError)
+      // Don't fail the request if cleanup fails
     }
 
     return new Response(
