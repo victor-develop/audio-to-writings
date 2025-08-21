@@ -243,7 +243,6 @@ serve(async (req) => {
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
-          'Content-Length': audioBuffer.byteLength.toString(),
           'X-Goog-Upload-Offset': '0',
           'X-Goog-Upload-Command': 'upload, finalize'
         },
