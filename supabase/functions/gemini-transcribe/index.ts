@@ -187,7 +187,14 @@ serve(async (req) => {
     let fileUri: string
     try {
       // Initial resumable request to get upload URL
-      const uploadStartUrl = `${GEMINI_FILE_API_BASE}/upload/v1beta/files`
+      const uploadStartUrl = `${GEMINI_FILE_API_BASE}/files`
+      console.log(`[${requestId}] Starting upload request to:`, uploadStartUrl)
+      console.log(`[${requestId}] Upload metadata:`, {
+        contentLength: audioBuffer.byteLength,
+        mimeType: mimeType,
+        displayName: `audio_${Date.now()}`
+      })
+      
       const uploadStartResponse = await fetch(uploadStartUrl, {
         method: 'POST',
         headers: {
@@ -205,15 +212,28 @@ serve(async (req) => {
         })
       })
 
+      console.log(`[${requestId}] Upload start response status:`, uploadStartResponse.status, uploadStartResponse.statusText)
+      console.log(`[${requestId}] Upload start response headers:`, Object.fromEntries(uploadStartResponse.headers.entries()))
+
       if (!uploadStartResponse.ok) {
-        const errorData = await uploadStartResponse.json()
-        console.error(`[${requestId}] File upload start failed:`, errorData)
+        let errorData
+        try {
+          const responseText = await uploadStartResponse.text()
+          console.error(`[${requestId}] Upload start failed response text:`, responseText)
+          if (responseText) {
+            errorData = JSON.parse(responseText)
+          }
+        } catch (parseError) {
+          console.error(`[${requestId}] Could not parse upload start error response:`, parseError)
+        }
+        console.error(`[${requestId}] File upload start failed:`, errorData || 'No error details')
         throw new Error(`File upload start failed: ${uploadStartResponse.status} ${uploadStartResponse.statusText}`)
       }
 
       // Extract upload URL from response headers
       const uploadUrl = uploadStartResponse.headers.get('x-goog-upload-url')
       if (!uploadUrl) {
+        console.error(`[${requestId}] Available headers:`, Array.from(uploadStartResponse.headers.keys()))
         throw new Error('No upload URL received from Gemini File API')
       }
 
@@ -230,15 +250,54 @@ serve(async (req) => {
         body: audioBytes
       })
 
+      console.log(`[${requestId}] Upload response status:`, uploadResponse.status, uploadResponse.statusText)
+      console.log(`[${requestId}] Upload response headers:`, Object.fromEntries(uploadResponse.headers.entries()))
+
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json()
-        console.error(`[${requestId}] File upload failed:`, errorData)
+        let errorData
+        try {
+          const responseText = await uploadResponse.text()
+          console.error(`[${requestId}] Upload failed response text:`, responseText)
+          if (responseText) {
+            errorData = JSON.parse(responseText)
+          }
+        } catch (parseError) {
+          console.error(`[${requestId}] Could not parse upload error response:`, parseError)
+        }
+        console.error(`[${requestId}] File upload failed:`, errorData || 'No error details')
         throw new Error(`File upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
       }
 
-      const fileInfo = await uploadResponse.json()
-      fileUri = fileInfo.file.uri
+      // Check if response has content before trying to parse JSON
+      const responseText = await uploadResponse.text()
+      console.log(`[${requestId}] Upload response text:`, responseText)
       
+      let fileInfo
+      if (responseText && responseText.trim()) {
+        try {
+          fileInfo = JSON.parse(responseText)
+        } catch (parseError) {
+          console.error(`[${requestId}] Failed to parse upload response JSON:`, parseError)
+          throw new Error(`Invalid upload response format: ${responseText}`)
+        }
+      } else {
+        // If no response body, try to construct the file URI from the upload URL
+        // The file ID is typically in the upload URL path
+        const urlParts = uploadUrl.split('/')
+        const fileId = urlParts[urlParts.length - 1]
+        if (fileId) {
+          fileInfo = {
+            file: {
+              uri: `${GEMINI_FILE_API_BASE}/files/${fileId}`
+            }
+          }
+          console.log(`[${requestId}] Constructed file URI from upload URL:`, fileInfo.file.uri)
+        } else {
+          throw new Error('No file info received and could not construct file URI')
+        }
+      }
+      
+      fileUri = fileInfo.file.uri
       console.log(`[${requestId}] File uploaded successfully. URI:`, fileUri)
       
     } catch (uploadError) {
