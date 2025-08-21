@@ -44,12 +44,17 @@ export const useSupabaseStorage = () => {
         return { url: null, error: error.message, storagePath: null }
       }
 
-      // Get the public URL
-      const { data: urlData } = supabase.storage
+      // Get a signed URL for secure access (expires in 1 hour)
+      const { data: urlData, error: urlError } = await supabase.storage
         .from('audio-recordings')
-        .getPublicUrl(storagePath)
+        .createSignedUrl(storagePath, 3600) // 1 hour expiry
 
-      return { url: urlData.publicUrl, error: null, storagePath }
+      if (urlError) {
+        console.error('Signed URL error:', urlError)
+        return { url: null, error: `Failed to create access URL: ${urlError.message}`, storagePath: null }
+      }
+
+      return { url: urlData.signedUrl, error: null, storagePath }
     } catch (err) {
       console.error('Upload error:', err)
       return { url: null, error: 'Failed to upload audio file', storagePath: null }
@@ -76,6 +81,24 @@ export const useSupabaseStorage = () => {
     }
   }
 
+  const getSignedUrl = async (filePath: string, expiresIn: number = 3600): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('audio-recordings')
+        .createSignedUrl(filePath, expiresIn)
+
+      if (error) {
+        console.error('Signed URL error:', error)
+        return null
+      }
+
+      return data.signedUrl
+    } catch (err) {
+      console.error('Signed URL error:', err)
+      return null
+    }
+  }
+
   // Note: Supabase Storage doesn't support renaming files directly
   // We would need to download, re-upload with new name, and delete old file
   // For now, we'll just use the safe filename and allow display names to be different
@@ -83,6 +106,7 @@ export const useSupabaseStorage = () => {
   return {
     uploadAudioFile,
     deleteAudioFile,
+    getSignedUrl,
     isUploading
   }
 }

@@ -27,7 +27,7 @@ const RecordingInterface: React.FC = () => {
     formatDuration
   } = useAudioRecorder()
 
-  const { uploadAudioFile } = useSupabaseStorage()
+  const { uploadAudioFile, getSignedUrl } = useSupabaseStorage()
   const [recordings, setRecordings] = useLocalStorage<Recording[]>('recordings', [])
 
   const [isAutoSaving, setIsAutoSaving] = useState(false)
@@ -212,6 +212,23 @@ const RecordingInterface: React.FC = () => {
     console.log(`Renamed recording ${id} to: ${newTitle}`)
   }
 
+  // Refresh expired signed URLs
+  const refreshExpiredUrl = async (recording: Recording) => {
+    if (recording.storagePath) {
+      const newUrl = await getSignedUrl(recording.storagePath, 3600)
+      if (newUrl) {
+        setRecordings(prev => prev.map(r => 
+          r.id === recording.id 
+            ? { ...r, audioUrl: newUrl }
+            : r
+        ))
+        console.log(`Refreshed URL for recording: ${recording.title}`)
+        return newUrl
+      }
+    }
+    return null
+  }
+
   const handlePlayRecording = (recording: Recording) => {
     setPlayingRecording(recording)
   }
@@ -224,7 +241,16 @@ const RecordingInterface: React.FC = () => {
     // Only handle Supabase storage recordings - no blob fallbacks
     if (recording.audioUrl && recording.audioUrl.startsWith('http')) {
       try {
-        const response = await fetch(recording.audioUrl)
+        // Check if URL might be expired and refresh if needed
+        let downloadUrl = recording.audioUrl
+        if (recording.storagePath) {
+          const refreshedUrl = await refreshExpiredUrl(recording)
+          if (refreshedUrl) {
+            downloadUrl = refreshedUrl
+          }
+        }
+
+        const response = await fetch(downloadUrl)
         if (!response.ok) {
           throw new Error(`Failed to fetch audio: ${response.status}`)
         }

@@ -126,6 +126,10 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
         } else if (response.status === 429) {
           setCanRetry(true)
           throw new Error(errorData.error || 'Rate limit exceeded. Please wait before trying again.')
+        } else if (response.status === 403) {
+          // Likely expired signed URL
+          setCanRetry(true)
+          throw new Error(errorData.error || 'Audio access expired. Please try again - the system will refresh the access URL.')
         } else {
           throw new Error(errorData.error || 'Failed to transcribe audio')
         }

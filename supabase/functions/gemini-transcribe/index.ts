@@ -96,13 +96,13 @@ serve(async (req) => {
     // Fetch the audio file from the URL
     console.log(`[${requestId}] Fetching audio from URL: ${audioUrl}`)
     
-    // Check if this is a blob URL or external URL that might not be accessible
+    // Check if this is a blob URL or local URL that Edge Functions cannot access
     if (audioUrl.startsWith('blob:') || audioUrl.includes('localhost') || audioUrl.includes('127.0.0.1')) {
       console.error(`[${requestId}] Cannot access blob or local URLs from Edge Function: ${audioUrl}`)
       return new Response(
         JSON.stringify({ 
-          error: 'Cannot access blob or local URLs from Edge Function. Please ensure the audio file is uploaded to a publicly accessible URL.',
-          details: 'Edge Functions can only access public HTTPS URLs'
+          error: 'Cannot access blob or local URLs from Edge Function. Please ensure the audio file is uploaded to Supabase Storage.',
+          details: 'Edge Functions can only access signed URLs from Supabase Storage'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -114,11 +114,18 @@ serve(async (req) => {
     
     let audioResponse
     try {
+      // For signed URLs from Supabase Storage, we don't need auth headers
+      // The signature in the URL provides the authentication
+      const fetchHeaders: Record<string, string> = {
+        'User-Agent': 'AudioPen-Pro-EdgeFunction/1.0'
+      }
+      
+      // If this is a Supabase Storage signed URL, it should work without additional auth
+      console.log(`[${requestId}] Fetching with headers:`, fetchHeaders)
+      
       audioResponse = await fetch(audioUrl, {
         method: 'GET',
-        headers: {
-          'User-Agent': 'AudioPen-Pro-EdgeFunction/1.0'
-        }
+        headers: fetchHeaders
       })
     } catch (fetchError) {
       console.error(`[${requestId}] Fetch error:`, fetchError)
@@ -133,12 +140,29 @@ serve(async (req) => {
     
     if (!audioResponse.ok) {
       console.error(`[${requestId}] Failed to fetch audio:`, audioResponse.status, audioResponse.statusText)
+      
+      // Handle specific error cases for storage access
+      let errorMessage = 'Failed to fetch audio file'
+      let statusCode = 400
+      
+      if (audioResponse.status === 403) {
+        errorMessage = 'Access denied to audio file. The signed URL may have expired or be invalid.'
+        statusCode = 403
+      } else if (audioResponse.status === 404) {
+        errorMessage = 'Audio file not found. The file may have been deleted or the URL is incorrect.'
+        statusCode = 404
+      } else if (audioResponse.status === 401) {
+        errorMessage = 'Unauthorized access to audio file. Please ensure you have permission to access this file.'
+        statusCode = 401
+      }
+      
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to fetch audio file',
-          details: `HTTP ${audioResponse.status}: ${audioResponse.statusText}`
+          error: errorMessage,
+          details: `HTTP ${audioResponse.status}: ${audioResponse.statusText}`,
+          suggestion: audioResponse.status === 403 ? 'Try refreshing the page to get a new signed URL' : undefined
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
