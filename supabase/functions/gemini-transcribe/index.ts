@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 // Gemini File API base URL
-const GEMINI_FILE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_FILE_API_BASE = 'https://generativelanguage.googleapis.com'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -187,7 +187,7 @@ serve(async (req) => {
     let fileUri: string
     try {
       // Initial resumable request to get upload URL
-      const uploadStartUrl = `${GEMINI_FILE_API_BASE}/files`
+      const uploadStartUrl = `${GEMINI_FILE_API_BASE}/upload/v1beta/files`
       console.log(`[${requestId}] Starting upload request to:`, uploadStartUrl)
       console.log(`[${requestId}] Upload metadata:`, {
         contentLength: audioBuffer.byteLength,
@@ -195,33 +195,50 @@ serve(async (req) => {
         displayName: `audio_${Date.now()}`
       })
       
-      const uploadStartResponse = await fetch(uploadStartUrl, {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': GEMINI_API_KEY,
-          'X-Goog-Upload-Protocol': 'resumable',
-          'X-Goog-Upload-Command': 'start',
-          'X-Goog-Upload-Header-Content-Length': audioBuffer.byteLength.toString(),
-          'X-Goog-Upload-Header-Content-Type': mimeType,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          file: {
-            display_name: `audio_${Date.now()}`
-          }
+      console.log(`[${requestId}] Making fetch request to Gemini File API...`)
+      
+      let uploadStartResponse
+      try {
+        uploadStartResponse = await fetch(uploadStartUrl, {
+          method: 'POST',
+          headers: {
+            'x-goog-api-key': GEMINI_API_KEY,
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': audioBuffer.byteLength.toString(),
+            'X-Goog-Upload-Header-Content-Type': mimeType,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            file: {
+              display_name: `audio_${Date.now()}`
+            }
+          })
         })
-      })
+        console.log(`[${requestId}] Fetch completed successfully`)
+      } catch (fetchError) {
+        console.error(`[${requestId}] Fetch failed:`, fetchError)
+        throw new Error(`Fetch to Gemini File API failed: ${fetchError.message}`)
+      }
 
       console.log(`[${requestId}] Upload start response status:`, uploadStartResponse.status, uploadStartResponse.statusText)
       console.log(`[${requestId}] Upload start response headers:`, Object.fromEntries(uploadStartResponse.headers.entries()))
 
+      // Log response text for debugging
+      let uploadStartResponseText
+      try {
+        uploadStartResponseText = await uploadStartResponse.text()
+        console.log(`[${requestId}] Upload start response text:`, uploadStartResponseText)
+      } catch (textError) {
+        console.error(`[${requestId}] Failed to read response text:`, textError)
+        uploadStartResponseText = ''
+      }
+
       if (!uploadStartResponse.ok) {
         let errorData
         try {
-          const responseText = await uploadStartResponse.text()
-          console.error(`[${requestId}] Upload start failed response text:`, responseText)
-          if (responseText) {
-            errorData = JSON.parse(responseText)
+          if (uploadStartResponseText) {
+            errorData = JSON.parse(uploadStartResponseText)
           }
         } catch (parseError) {
           console.error(`[${requestId}] Could not parse upload start error response:`, parseError)
@@ -243,6 +260,7 @@ serve(async (req) => {
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
+          'Content-Length': audioBuffer.byteLength.toString(),
           'X-Goog-Upload-Offset': '0',
           'X-Goog-Upload-Command': 'upload, finalize'
         },
@@ -287,7 +305,7 @@ serve(async (req) => {
         if (fileId) {
           fileInfo = {
             file: {
-              uri: `${GEMINI_FILE_API_BASE}/files/${fileId}`
+              uri: `${GEMINI_FILE_API_BASE}/v1beta/files/${fileId}`
             }
           }
           console.log(`[${requestId}] Constructed file URI from upload URL:`, fileInfo.file.uri)
@@ -313,7 +331,7 @@ serve(async (req) => {
     // Step 2: Generate content using the uploaded file
     console.log(`[${requestId}] Calling Gemini API with file URI:`, fileUri)
     
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
+    const geminiUrl = `${GEMINI_FILE_API_BASE}/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
     
     const requestBody = {
       contents: [
@@ -424,7 +442,7 @@ serve(async (req) => {
     try {
       const fileId = fileUri.split('/').pop()
       if (fileId) {
-        const deleteUrl = `${GEMINI_FILE_API_BASE}/files/${fileId}?key=${GEMINI_API_KEY}`
+        const deleteUrl = `${GEMINI_FILE_API_BASE}/v1beta/files/${fileId}?key=${GEMINI_API_KEY}`
         await fetch(deleteUrl, { method: 'DELETE' })
         console.log(`[${requestId}] Cleaned up uploaded file:`, fileId)
       }
