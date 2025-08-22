@@ -21,7 +21,15 @@ import {
 import { predefinedPrompts, PredefinedPrompt } from '../data/predefinedPrompts'
 import { supabase } from '../lib/supabase'
 import { Recording, UserPrompt } from '../types/recording'
-import { useUserPrompts } from '../hooks/useUserPrompts'
+import { useAuth } from '../contexts/AuthContext'
+import { 
+  usePrompts, 
+  useCreatePrompt, 
+  useUpdatePrompt, 
+  useDeletePrompt, 
+  useTogglePromptFavorite,
+  useIncrementPromptUsage
+} from '../hooks/queries/usePromptsQueries'
 import PromptCard from './PromptCard'
 import PromptEditor from './PromptEditor'
 
@@ -50,15 +58,22 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
   const [editingPrompt, setEditingPrompt] = useState<UserPrompt | null>(null)
   
   // Custom prompts hook
+  const { user } = useAuth()
   const { 
-    prompts: userPrompts, 
-    createPrompt, 
-    updatePrompt, 
-    deletePrompt, 
-    toggleFavorite,
-    incrementUsage,
-    generatePromptName 
-  } = useUserPrompts()
+    data: userPrompts = []
+  } = usePrompts(user?.id || '')
+  
+  const createPromptMutation = useCreatePrompt()
+  const updatePromptMutation = useUpdatePrompt()
+  const deletePromptMutation = useDeletePrompt()
+  const toggleFavoriteMutation = useTogglePromptFavorite()
+  const incrementUsageMutation = useIncrementPromptUsage()
+  
+  // Generate prompt name function (moved from useUserPrompts)
+  const generatePromptName = (prompt: string): string => {
+    const words = prompt.trim().split(' ').slice(0, 5)
+    return words.join(' ') + (words.length === 5 ? '...' : '')
+  }
 
   // Function to get the appropriate icon for each prompt type
   const getPromptIcon = (promptId: string) => {
@@ -94,9 +109,10 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
     }
 
     const promptName = generatePromptName(customPrompt)
-    const newPrompt = await createPrompt({
+    const newPrompt = await createPromptMutation.mutateAsync({
       name: promptName,
-      prompt: customPrompt.trim()
+      prompt: customPrompt.trim(),
+      userId: user?.id || ''
     })
 
     if (newPrompt) {
@@ -116,14 +132,21 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
   const handleSavePrompt = async (promptData: { name: string; prompt: string; category?: string }) => {
     if (editingPrompt) {
       // Update existing prompt
-      const success = await updatePrompt(editingPrompt.id, promptData)
+      const success = await updatePromptMutation.mutateAsync({
+        id: editingPrompt.id,
+        ...promptData,
+        userId: user?.id || ''
+      })
       if (success) {
         setEditingPrompt(null)
         return true
       }
     } else {
       // Create new prompt
-      const newPrompt = await createPrompt(promptData)
+      const newPrompt = await createPromptMutation.mutateAsync({
+        ...promptData,
+        userId: user?.id || ''
+      })
       if (newPrompt) {
         setSelectedPrompt(newPrompt)
         return true
@@ -134,16 +157,35 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
 
   // Handle prompt deletion
   const handleDeletePrompt = async (id: string) => {
-    const success = await deletePrompt(id)
-    if (success && selectedPrompt && 'userId' in selectedPrompt && selectedPrompt.id === id) {
-      setSelectedPrompt(predefinedPrompts[0])
+    try {
+      await deletePromptMutation.mutateAsync(id)
+      if (selectedPrompt && 'userId' in selectedPrompt && selectedPrompt.id === id) {
+        setSelectedPrompt(predefinedPrompts[0])
+      }
+      return true
+    } catch (error) {
+      console.error('Failed to delete prompt:', error)
+      return false
     }
-    return success
   }
 
   // Handle favorite toggle
   const handleToggleFavorite = async (id: string) => {
-    return await toggleFavorite(id)
+    try {
+      // Find the current prompt to get its favorite status
+      const currentPrompt = userPrompts.find(p => p.id === id)
+      if (currentPrompt) {
+        await toggleFavoriteMutation.mutateAsync({
+          id,
+          isFavorite: !currentPrompt.isFavorite
+        })
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error)
+      return false
+    }
   }
 
   const handleTranscribe = async () => {
@@ -167,7 +209,10 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
       // User prompt
       promptToUse = selectedPrompt.prompt
       // Increment usage count
-      await incrementUsage(selectedPrompt.id)
+      await incrementUsageMutation.mutateAsync({
+        id: selectedPrompt.id,
+        currentUsage: selectedPrompt.usageCount
+      })
     } else if (selectedPrompt.id === 'custom-prompt') {
       // Custom prompt input
       promptToUse = customPrompt

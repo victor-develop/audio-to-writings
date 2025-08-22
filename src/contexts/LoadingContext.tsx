@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { useIsFetching, useIsMutating } from '@tanstack/react-query'
 
 interface LoadingContextType {
   isLoading: boolean
@@ -23,6 +24,10 @@ interface LoadingProviderProps {
 
 export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) => {
   const [loadingCount, setLoadingCount] = useState(0)
+  
+  // Auto-track TanStack Query loading states
+  const isFetching = useIsFetching()
+  const isMutating = useIsMutating()
 
   const startLoading = useCallback(() => {
     setLoadingCount(prev => prev + 1)
@@ -32,7 +37,8 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
     setLoadingCount(prev => Math.max(0, prev - 1))
   }, [])
 
-  const isLoading = loadingCount > 0
+  // Combine manual loading with TanStack Query loading states
+  const isLoading = loadingCount > 0 || isFetching > 0 || isMutating > 0
 
   return (
     <LoadingContext.Provider value={{ isLoading, startLoading, stopLoading, loadingCount }}>

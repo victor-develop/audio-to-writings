@@ -5,6 +5,7 @@ export interface Recording {
   duration: number
   createdAt: Date | string
   storagePath?: string // Internal storage path (safe filename)
+  userId?: string // User ID for the recording owner
 }
 
 export interface RecordingFormData {

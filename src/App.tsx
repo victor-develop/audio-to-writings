@@ -1,11 +1,14 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LoadingProvider } from './contexts/LoadingContext'
 import Header from './components/Header'
 import LoginPage from './components/LoginPage'
 import RecordingInterface from './components/RecordingInterface'
 import GlobalLoadingBar from './components/GlobalLoadingBar'
+import { queryClient } from './lib/queryClient'
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth()
@@ -46,12 +49,15 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <LoadingProvider>
-        <GlobalLoadingBar />
-        <AppRoutes />
-      </LoadingProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LoadingProvider>
+          <GlobalLoadingBar />
+          <AppRoutes />
+        </LoadingProvider>
+      </AuthProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   )
 }
 

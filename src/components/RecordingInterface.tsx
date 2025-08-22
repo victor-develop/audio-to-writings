@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Mic, Square, Pause, Play, Loader2 } from 'lucide-react'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
 import { useSupabaseStorage } from '../hooks/useSupabaseStorage'
-import { useSupabaseRecordings } from '../hooks/useSupabaseRecordings'
+import { useRecordings, useCreateRecording, useUpdateRecording, useDeleteRecording } from '../hooks/queries/useRecordingsQueries'
 import { useAuth } from '../contexts/AuthContext'
 import { Recording } from '../types/recording'
 
@@ -28,14 +28,17 @@ const RecordingInterface: React.FC = () => {
   } = useAudioRecorder()
 
   const { uploadAudioFile, getSignedUrl } = useSupabaseStorage()
-  const { 
-    recordings, 
-    createRecording, 
-    updateRecording, 
-    deleteRecording, 
-    loading: recordingsLoading,
-    error: recordingsError 
-  } = useSupabaseRecordings()
+  
+  // TanStack Query hooks
+  const {
+    data: recordings = [],
+    isLoading: recordingsLoading,
+    error: recordingsError
+  } = useRecordings(user?.id || '')
+  
+  const createRecordingMutation = useCreateRecording()
+  const updateRecordingMutation = useUpdateRecording()
+  const deleteRecordingMutation = useDeleteRecording()
 
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [hasAutoSaved, setHasAutoSaved] = useState(false)
@@ -75,14 +78,14 @@ const RecordingInterface: React.FC = () => {
     // Delete invalid recordings from Supabase
     const invalidRecordings = recordings.filter(recording => !validRecordings.includes(recording))
     for (const recording of invalidRecordings) {
-      await deleteRecording(recording.id)
+      await deleteRecordingMutation.mutateAsync(recording.id)
       console.log('Deleted invalid recording:', recording.title)
     }
     
     if (invalidRecordings.length > 0) {
       console.log(`Cleaned up ${invalidRecordings.length} recordings with invalid URLs`)
     }
-  }, [recordings, deleteRecording])
+  }, [recordings, deleteRecordingMutation])
 
   // Auto-save function that triggers after recording stops
   const autoSaveRecording = useCallback(async () => {
@@ -112,14 +115,15 @@ const RecordingInterface: React.FC = () => {
           audioUrl: url,
           duration,
           createdAt: new Date().toISOString(),
-          storagePath: result.storagePath || undefined // Internal storage path
+          storagePath: result.storagePath || undefined, // Internal storage path
+          userId: user.id
         }
         
         console.log('Auto-saving new recording:', newRecordingData)
         console.log('Storage path used:', result.storagePath)
         
         // Save to Supabase database
-        const savedRecording = await createRecording(newRecordingData)
+        const savedRecording = await createRecordingMutation.mutateAsync(newRecordingData)
         if (savedRecording) {
           console.log('Recording saved to Supabase:', savedRecording)
         }
@@ -136,7 +140,7 @@ const RecordingInterface: React.FC = () => {
         setIsAutoSaving(false)
       }
     }
-  }, [audioBlob, user, hasAutoSaved, isAutoSaving, generateDefaultFilename, uploadAudioFile, duration, createRecording, resetRecording])
+  }, [audioBlob, user, hasAutoSaved, isAutoSaving, generateDefaultFilename, uploadAudioFile, duration, createRecordingMutation, resetRecording])
 
   // Clean up invalid recordings only on component mount
   useEffect(() => {
@@ -200,11 +204,11 @@ const RecordingInterface: React.FC = () => {
     if (confirm('This will delete ALL recordings. Are you sure?')) {
       // Delete all recordings from Supabase
       for (const recording of recordings) {
-        await deleteRecording(recording.id)
+        await deleteRecordingMutation.mutateAsync(recording.id)
       }
       console.log('All recordings cleared from Supabase')
     }
-  }, [recordings, deleteRecording])
+  }, [recordings, deleteRecordingMutation])
 
   // Clear only invalid recordings
   const clearInvalidRecordings = useCallback(() => {
@@ -221,12 +225,12 @@ const RecordingInterface: React.FC = () => {
   }, [startRecording])
 
   const handleDeleteRecording = async (id: string) => {
-    await deleteRecording(id)
+    await deleteRecordingMutation.mutateAsync(id)
     console.log(`Deleted recording ${id}`)
   }
 
   const handleRenameRecording = async (id: string, newTitle: string) => {
-    await updateRecording(id, { title: newTitle })
+    await updateRecordingMutation.mutateAsync({ id, title: newTitle, userId: user?.id || '' })
     console.log(`Renamed recording ${id} to: ${newTitle}`)
   }
 
@@ -236,7 +240,11 @@ const RecordingInterface: React.FC = () => {
       const newUrl = await getSignedUrl(recording.storagePath, 3600)
       if (newUrl) {
         // Update the recording in Supabase with the new URL
-        await updateRecording(recording.id, { title: recording.title })
+        await updateRecordingMutation.mutateAsync({ 
+          id: recording.id, 
+          title: recording.title, 
+          userId: user?.id || '' 
+        })
         console.log(`Refreshed URL for recording: ${recording.title}`)
         return newUrl
       }
@@ -460,7 +468,7 @@ const RecordingInterface: React.FC = () => {
               <div className="text-center text-red-500 py-8">
                 <div className="w-12 h-12 mx-auto mb-4 text-red-300">⚠️</div>
                 <p>Failed to load recordings</p>
-                <p className="text-sm">{recordingsError}</p>
+                <p className="text-sm">{recordingsError?.message || recordingsError?.toString() || 'Unknown error'}</p>
                 <button 
                   onClick={() => window.location.reload()} 
                   className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
