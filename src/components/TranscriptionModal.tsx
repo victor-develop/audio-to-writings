@@ -538,12 +538,6 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                 </p>
               </div>
 
-              {/* Prompt Used */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h5 className="font-medium text-gray-900 mb-2">Prompt Used:</h5>
-                <p className="text-sm text-gray-700">{transcriptionResult.prompt}</p>
-              </div>
-
               {/* Transcription Text */}
               <div>
                 <div className="flex items-center justify-between mb-3">
