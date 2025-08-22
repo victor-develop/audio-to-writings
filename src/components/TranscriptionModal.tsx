@@ -7,7 +7,16 @@ import {
   Copy, 
   Check, 
   Download,
-  Plus
+  Plus,
+  Linkedin,
+  FileText,
+  Mic,
+  Users,
+  BookOpen,
+  Headphones,
+  PenTool,
+  Settings,
+  Heart
 } from 'lucide-react'
 import { predefinedPrompts, PredefinedPrompt } from '../data/predefinedPrompts'
 import { supabase } from '../lib/supabase'
@@ -51,7 +60,31 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
     generatePromptName 
   } = useUserPrompts()
 
-
+  // Function to get the appropriate icon for each prompt type
+  const getPromptIcon = (promptId: string) => {
+    switch (promptId) {
+      case 'linkedin-storyteller':
+        return <Linkedin className="w-5 h-5 text-blue-600" />
+      case 'business-article-writer':
+        return <FileText className="w-5 h-5 text-green-600" />
+      case 'basic-transcription':
+        return <Mic className="w-5 h-5 text-gray-600" />
+      case 'meeting-minutes':
+        return <Users className="w-5 h-5 text-purple-600" />
+      case 'interview-transcript':
+        return <BookOpen className="w-5 h-5 text-indigo-600" />
+      case 'lecture-notes':
+        return <PenTool className="w-5 h-5 text-orange-600" />
+      case 'podcast-summary':
+        return <Headphones className="w-5 h-5 text-pink-600" />
+      case 'redbook':
+        return <Heart className="w-5 h-5 text-red-500" />
+      case 'custom-prompt':
+        return <Settings className="w-5 h-5 text-gray-600" />
+      default:
+        return <Sparkles className="w-5 h-5 text-purple-600" />
+    }
+  }
 
   // Handle custom prompt creation
   const handleCreateCustomPrompt = async () => {
@@ -322,6 +355,7 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
                         prompt={prompt}
                         isSelected={selectedPrompt.id === prompt.id && !('userId' in selectedPrompt)}
                         onSelect={setSelectedPrompt}
+                        getPromptIcon={getPromptIcon}
                       />
                     ))}
                   </div>

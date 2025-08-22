@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight, Star, Edit2, Trash2, Heart } from 'lucide-react'
+import { ChevronDown, ChevronRight, Star, Edit2, Trash2, Heart, Settings } from 'lucide-react'
 import { UserPrompt } from '../types/recording'
 import { PredefinedPrompt } from '../data/predefinedPrompts'
 
@@ -10,6 +10,7 @@ interface PromptCardProps {
   onEdit?: (prompt: UserPrompt) => void
   onDelete?: (id: string) => void
   onToggleFavorite?: (id: string) => void
+  getPromptIcon?: (promptId: string) => React.ReactNode
 }
 
 const PromptCard: React.FC<PromptCardProps> = ({
@@ -18,7 +19,8 @@ const PromptCard: React.FC<PromptCardProps> = ({
   onSelect,
   onEdit,
   onDelete,
-  onToggleFavorite
+  onToggleFavorite,
+  getPromptIcon
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -62,19 +64,28 @@ const PromptCard: React.FC<PromptCardProps> = ({
       }`}
       onClick={() => onSelect(prompt)}
     >
-      <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 mt-1">
-          <button
-            onClick={handleToggleExpand}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
+              <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0 mt-1">
+            <button
+              onClick={handleToggleExpand}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          
+          {/* Prompt Icon */}
+          <div className="flex-shrink-0 mt-1">
+            {getPromptIcon && !isUserPrompt ? (
+              getPromptIcon(prompt.id)
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <Settings className="w-5 h-5 text-gray-600" />
             )}
-          </button>
-        </div>
+          </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
