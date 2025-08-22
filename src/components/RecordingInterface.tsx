@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Mic, Square, Pause, Play, Loader2 } from 'lucide-react'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useSupabaseStorage } from '../hooks/useSupabaseStorage'
+import { useSupabaseRecordings } from '../hooks/useSupabaseRecordings'
 import { useAuth } from '../contexts/AuthContext'
 import { Recording } from '../types/recording'
 
@@ -28,9 +28,17 @@ const RecordingInterface: React.FC = () => {
   } = useAudioRecorder()
 
   const { uploadAudioFile, getSignedUrl } = useSupabaseStorage()
-  const [recordings, setRecordings] = useLocalStorage<Recording[]>('recordings', [])
+  const { 
+    recordings, 
+    createRecording, 
+    updateRecording, 
+    deleteRecording, 
+    loading: recordingsLoading,
+    error: recordingsError 
+  } = useSupabaseRecordings()
 
   const [isAutoSaving, setIsAutoSaving] = useState(false)
+  const [hasAutoSaved, setHasAutoSaved] = useState(false)
   const [playingRecording, setPlayingRecording] = useState<Recording | null>(null)
   const [transcribingRecording, setTranscribingRecording] = useState<Recording | null>(null)
 
@@ -49,37 +57,39 @@ const RecordingInterface: React.FC = () => {
   }, [])
 
   // Clean up recordings with invalid URLs (blob URLs, localhost, etc.)
-  const cleanupInvalidRecordings = useCallback(() => {
-    setRecordings(prev => {
-      const validRecordings = prev.filter(recording => {
-        const isValidUrl = recording.audioUrl && 
-          !recording.audioUrl.startsWith('blob:') && 
-          !recording.audioUrl.includes('localhost') && 
-          !recording.audioUrl.includes('127.0.0.1') &&
-          (recording.audioUrl.startsWith('http') || recording.audioUrl.startsWith('https'))
-        
-        if (!isValidUrl) {
-          console.log('Removing recording with invalid URL:', recording.title, recording.audioUrl)
-        }
-        
-        return isValidUrl
-      })
+  const cleanupInvalidRecordings = useCallback(async () => {
+    const validRecordings = recordings.filter(recording => {
+      const isValidUrl = recording.audioUrl && 
+        !recording.audioUrl.startsWith('blob:') && 
+        !recording.audioUrl.includes('localhost') && 
+        !recording.audioUrl.includes('127.0.0.1') &&
+        (recording.audioUrl.startsWith('http') || recording.audioUrl.startsWith('https'))
       
-      // Only update if we actually need to remove recordings
-      if (validRecordings.length !== prev.length) {
-        console.log(`Cleaned up ${prev.length - validRecordings.length} recordings with invalid URLs`)
-        return validRecordings
+      if (!isValidUrl) {
+        console.log('Found recording with invalid URL:', recording.title, recording.audioUrl)
       }
       
-      // Return the same array reference if no changes needed
-      return prev
+      return isValidUrl
     })
-  }, [setRecordings])
+    
+    // Delete invalid recordings from Supabase
+    const invalidRecordings = recordings.filter(recording => !validRecordings.includes(recording))
+    for (const recording of invalidRecordings) {
+      await deleteRecording(recording.id)
+      console.log('Deleted invalid recording:', recording.title)
+    }
+    
+    if (invalidRecordings.length > 0) {
+      console.log(`Cleaned up ${invalidRecordings.length} recordings with invalid URLs`)
+    }
+  }, [recordings, deleteRecording])
 
   // Auto-save function that triggers after recording stops
   const autoSaveRecording = useCallback(async () => {
-    if (audioBlob && user) {
+    if (audioBlob && user && !hasAutoSaved && !isAutoSaving) {
       setIsAutoSaving(true)
+      setHasAutoSaved(true)
+      
       try {
         const defaultTitle = generateDefaultFilename()
         
@@ -97,8 +107,7 @@ const RecordingInterface: React.FC = () => {
         }
         
         // Only save if we have a valid Supabase URL
-        const newRecording: Recording = {
-          id: Date.now().toString(),
+        const newRecordingData = {
           title: defaultTitle, // Auto-generated title
           audioUrl: url,
           duration,
@@ -106,24 +115,28 @@ const RecordingInterface: React.FC = () => {
           storagePath: result.storagePath || undefined // Internal storage path
         }
         
-        console.log('Auto-saving new recording:', newRecording)
+        console.log('Auto-saving new recording:', newRecordingData)
         console.log('Storage path used:', result.storagePath)
-        setRecordings(prev => {
-          const updated = [newRecording, ...prev]
-          console.log('Updated recordings array:', updated)
-          return updated
-        })
+        
+        // Save to Supabase database
+        const savedRecording = await createRecording(newRecordingData)
+        if (savedRecording) {
+          console.log('Recording saved to Supabase:', savedRecording)
+        }
+        
         resetRecording()
+        setHasAutoSaved(false) // Reset for next recording
         
       } catch (err) {
         console.error('Error auto-saving recording:', err)
         alert(`Failed to save recording: ${err instanceof Error ? err.message : 'Unknown error'}`)
-        // Don't save anything - user must try again
+        // Reset the flag so user can try again
+        setHasAutoSaved(false)
       } finally {
         setIsAutoSaving(false)
       }
     }
-  }, [audioBlob, user, generateDefaultFilename, uploadAudioFile, duration, setRecordings, resetRecording])
+  }, [audioBlob, user, hasAutoSaved, isAutoSaving, generateDefaultFilename, uploadAudioFile, duration, createRecording, resetRecording])
 
   // Clean up invalid recordings only on component mount
   useEffect(() => {
@@ -183,12 +196,15 @@ const RecordingInterface: React.FC = () => {
   }, [recordings])
 
   // Force clear all recordings (for debugging)
-  const forceClearAllRecordings = useCallback(() => {
+  const forceClearAllRecordings = useCallback(async () => {
     if (confirm('This will delete ALL recordings. Are you sure?')) {
-      setRecordings([])
-      console.log('All recordings cleared')
+      // Delete all recordings from Supabase
+      for (const recording of recordings) {
+        await deleteRecording(recording.id)
+      }
+      console.log('All recordings cleared from Supabase')
     }
-  }, [setRecordings])
+  }, [recordings, deleteRecording])
 
   // Clear only invalid recordings
   const clearInvalidRecordings = useCallback(() => {
@@ -199,16 +215,18 @@ const RecordingInterface: React.FC = () => {
 
 
 
-  const handleDeleteRecording = (id: string) => {
-    setRecordings(prev => prev.filter(recording => recording.id !== id))
+  const handleStartRecording = useCallback(() => {
+    setHasAutoSaved(false) // Reset for new recording
+    startRecording()
+  }, [startRecording])
+
+  const handleDeleteRecording = async (id: string) => {
+    await deleteRecording(id)
+    console.log(`Deleted recording ${id}`)
   }
 
-  const handleRenameRecording = (id: string, newTitle: string) => {
-    setRecordings(prev => prev.map(recording => 
-      recording.id === id 
-        ? { ...recording, title: newTitle }
-        : recording
-    ))
+  const handleRenameRecording = async (id: string, newTitle: string) => {
+    await updateRecording(id, { title: newTitle })
     console.log(`Renamed recording ${id} to: ${newTitle}`)
   }
 
@@ -217,11 +235,8 @@ const RecordingInterface: React.FC = () => {
     if (recording.storagePath) {
       const newUrl = await getSignedUrl(recording.storagePath, 3600)
       if (newUrl) {
-        setRecordings(prev => prev.map(r => 
-          r.id === recording.id 
-            ? { ...r, audioUrl: newUrl }
-            : r
-        ))
+        // Update the recording in Supabase with the new URL
+        await updateRecording(recording.id, { title: recording.title })
         console.log(`Refreshed URL for recording: ${recording.title}`)
         return newUrl
       }
@@ -352,7 +367,7 @@ const RecordingInterface: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={startRecording}
+                  onClick={handleStartRecording}
                   className="w-16 h-16 bg-primary-600 hover:bg-primary-700 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   <Mic className="w-8 h-8" />
@@ -413,7 +428,7 @@ const RecordingInterface: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={startRecording}
+                  onClick={handleStartRecording}
                   className="btn-primary flex items-center space-x-2"
                 >
                   <Mic className="w-4 h-4" />
@@ -431,13 +446,41 @@ const RecordingInterface: React.FC = () => {
             className="card"
           >
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Your Voice Library</h2>
-            {recordings.length === 0 ? (
+            
+            {/* Loading State */}
+            {recordingsLoading && (
+              <div className="text-center text-gray-500 py-8">
+                <Loader2 className="w-12 h-12 mx-auto mb-4 text-gray-300 animate-spin" />
+                <p>Loading your voice library...</p>
+              </div>
+            )}
+            
+            {/* Error State */}
+            {recordingsError && !recordingsLoading && (
+              <div className="text-center text-red-500 py-8">
+                <div className="w-12 h-12 mx-auto mb-4 text-red-300">⚠️</div>
+                <p>Failed to load recordings</p>
+                <p className="text-sm">{recordingsError}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            
+            {/* Empty State */}
+            {!recordingsLoading && !recordingsError && recordings.length === 0 && (
               <div className="text-center text-gray-500 py-8">
                 <Mic className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>No voice content yet</p>
                 <p className="text-sm">Start capturing your voice to see your library here</p>
               </div>
-            ) : (
+            )}
+            
+            {/* Recordings List */}
+            {!recordingsLoading && !recordingsError && recordings.length > 0 && (
               <RecordingHistory
                 recordings={recordings}
                 onPlay={handlePlayRecording}

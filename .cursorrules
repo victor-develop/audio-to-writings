@@ -1,0 +1,68 @@
+# Cursor Rules for AI-Day Project
+
+## 🚫 **NO localStorage Usage Without Explicit Permission**
+
+### **Rule: localStorage is FORBIDDEN by default**
+
+**DO NOT use localStorage, sessionStorage, or any browser storage mechanisms unless explicitly requested by the user.**
+
+### **What This Means:**
+
+1. **Never suggest localStorage** for data persistence
+2. **Never implement localStorage** for storing user data
+3. **Never use localStorage** for caching or state management
+4. **Always use Supabase** for data storage and persistence
+
+### **Allowed Storage Methods:**
+
+✅ **Supabase Database** - For all user data, recordings, prompts, etc.
+✅ **Supabase Storage** - For audio files and media
+✅ **React State** - For temporary UI state
+✅ **URL Parameters** - For navigation state
+✅ **Cookies** - Only for authentication tokens (handled by Supabase)
+
+### **When localStorage MIGHT be allowed:**
+
+- User explicitly asks for localStorage
+- User wants offline-only functionality
+- User wants browser-specific features
+- User explicitly overrides this rule
+
+### **Examples of FORBIDDEN localStorage usage:**
+
+❌ `localStorage.setItem('recordings', JSON.stringify(data))`
+❌ `const data = localStorage.getItem('userPreferences')`
+❌ `sessionStorage.setItem('tempData', value)`
+❌ Any browser storage for user content
+
+### **Examples of REQUIRED Supabase usage:**
+
+✅ `supabase.from('recordings').insert(data)`
+✅ `supabase.storage.from('audio').upload(path, file)`
+✅ `supabase.from('user_prompts').select('*')`
+
+### **Why This Rule Exists:**
+
+1. **Data Persistence** - localStorage doesn't persist across devices
+2. **User Isolation** - localStorage doesn't support multi-user apps
+3. **Backup & Recovery** - localStorage data can be lost
+4. **Professional Standards** - Production apps use proper databases
+5. **Security** - localStorage has no built-in security
+
+### **Enforcement:**
+
+- **Always suggest Supabase alternatives**
+- **Explain why localStorage is inappropriate**
+- **Provide Supabase implementation examples**
+- **Never implement localStorage without explicit permission**
+
+### **If User Requests localStorage:**
+
+1. **Ask for clarification** on why they need it
+2. **Suggest Supabase alternatives** that solve their real problem
+3. **Explain the limitations** of localStorage
+4. **Only implement if they explicitly override this rule**
+
+---
+
+**Remember: Supabase is the ONLY storage solution for this project unless explicitly overridden by the user.**
