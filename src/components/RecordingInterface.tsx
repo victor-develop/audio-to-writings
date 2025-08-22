@@ -447,20 +447,6 @@ const RecordingInterface: React.FC = () => {
               </div>
             )}
 
-            {/* New Recording Button */}
-            {!audioUrl && !isRecording && !isAutoSaving && (
-              <div className="flex justify-center">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleStartRecording}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <Mic className="w-4 h-4" />
-                  <span>Start New Recording</span>
-                </motion.button>
-              </div>
-            )}
           </motion.div>
 
           {/* Recording History */}
