@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { Recording } from '../types/recording'
+import { useLoading } from '../contexts/LoadingContext'
 
 export const useSupabaseRecordings = () => {
   const [recordings, setRecordings] = useState<Recording[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { startLoading, stopLoading } = useLoading()
 
   // Fetch user recordings
   const fetchRecordings = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
+      startLoading()
       
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -42,13 +45,15 @@ export const useSupabaseRecordings = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch recordings')
     } finally {
       setLoading(false)
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Create a new recording
   const createRecording = useCallback(async (recordingData: Omit<Recording, 'id'>): Promise<Recording | null> => {
     try {
       setError(null)
+      startLoading()
       
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -85,13 +90,16 @@ export const useSupabaseRecordings = () => {
       console.error('Error creating recording:', err)
       setError(err instanceof Error ? err.message : 'Failed to create recording')
       return null
+    } finally {
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Update a recording
   const updateRecording = useCallback(async (id: string, updates: Partial<Pick<Recording, 'title'>>): Promise<boolean> => {
     try {
       setError(null)
+      startLoading()
       
       const { error } = await supabase
         .from('recordings')
@@ -114,13 +122,16 @@ export const useSupabaseRecordings = () => {
       console.error('Error updating recording:', err)
       setError(err instanceof Error ? err.message : 'Failed to update recording')
       return false
+    } finally {
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Delete a recording
   const deleteRecording = useCallback(async (id: string): Promise<boolean> => {
     try {
       setError(null)
+      startLoading()
       
       const { error } = await supabase
         .from('recordings')
@@ -135,8 +146,10 @@ export const useSupabaseRecordings = () => {
       console.error('Error deleting recording:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete recording')
       return false
+    } finally {
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Load recordings on mount
   useEffect(() => {

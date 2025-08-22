@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { UserPrompt, CreateUserPromptData } from '../types/recording'
+import { useLoading } from '../contexts/LoadingContext'
 
 export const useUserPrompts = () => {
   const [prompts, setPrompts] = useState<UserPrompt[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { startLoading, stopLoading } = useLoading()
 
   // Fetch user prompts
   const fetchPrompts = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
+      startLoading()
       
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -46,13 +49,15 @@ export const useUserPrompts = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch prompts')
     } finally {
       setLoading(false)
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Create a new prompt
   const createPrompt = useCallback(async (promptData: CreateUserPromptData): Promise<UserPrompt | null> => {
     try {
       setError(null)
+      startLoading()
       
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -91,13 +96,16 @@ export const useUserPrompts = () => {
       console.error('Error creating prompt:', err)
       setError(err instanceof Error ? err.message : 'Failed to create prompt')
       return null
+    } finally {
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Update a prompt
   const updatePrompt = useCallback(async (id: string, updates: Partial<CreateUserPromptData>): Promise<boolean> => {
     try {
       setError(null)
+      startLoading()
       
       const { error } = await supabase
         .from('user_prompts')
@@ -122,13 +130,16 @@ export const useUserPrompts = () => {
       console.error('Error updating prompt:', err)
       setError(err instanceof Error ? err.message : 'Failed to update prompt')
       return false
+    } finally {
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Delete a prompt
   const deletePrompt = useCallback(async (id: string): Promise<boolean> => {
     try {
       setError(null)
+      startLoading()
       
       const { error } = await supabase
         .from('user_prompts')
@@ -143,12 +154,15 @@ export const useUserPrompts = () => {
       console.error('Error deleting prompt:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete prompt')
       return false
+    } finally {
+      stopLoading()
     }
-  }, [])
+  }, [startLoading, stopLoading])
 
   // Toggle favorite status
   const toggleFavorite = useCallback(async (id: string): Promise<boolean> => {
     try {
+      startLoading()
       const prompt = prompts.find(p => p.id === id)
       if (!prompt) return false
 
@@ -168,12 +182,15 @@ export const useUserPrompts = () => {
       console.error('Error toggling favorite:', err)
       setError(err instanceof Error ? err.message : 'Failed to update favorite status')
       return false
+    } finally {
+      stopLoading()
     }
-  }, [prompts])
+  }, [prompts, startLoading, stopLoading])
 
   // Increment usage count
   const incrementUsage = useCallback(async (id: string): Promise<boolean> => {
     try {
+      startLoading()
       // First get the current prompt to get the current usage count
       const prompt = prompts.find(p => p.id === id)
       if (!prompt) return false
@@ -198,8 +215,10 @@ export const useUserPrompts = () => {
     } catch (err) {
       console.error('Error incrementing usage:', err)
       return false
+    } finally {
+      stopLoading()
     }
-  }, [prompts])
+  }, [prompts, startLoading, stopLoading])
 
   // Auto-generate name for prompt
   const generatePromptName = useCallback((prompt: string): string => {
