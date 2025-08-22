@@ -7,7 +7,10 @@
     "dev": "vite --port=3001",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:server": "supabase functions deploy",
+    "deploy:gemini": "supabase functions deploy gemini-transcribe",
+    "deploy:transcribe": "supabase functions deploy transcribe"
   },
   "dependencies": {
     "@supabase/auth-helpers-react": "^0.4.2",
