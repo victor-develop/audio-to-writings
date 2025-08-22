@@ -10,6 +10,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [isMuted, setIsMuted] = useState(false)
+  const [hasError, setHasError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     const audio = audioRef.current
@@ -42,6 +44,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
       console.error('Audio error:', event)
       setDuration(0)
       setCurrentTime(0)
+      setHasError(true)
+      setErrorMessage('Failed to load audio file. The URL may have expired.')
     }
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata)
@@ -142,6 +146,32 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
             </button>
           </div>
 
+          {/* Error Display */}
+          {hasError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center space-x-2 text-red-800">
+                <span className="text-sm font-medium">⚠️ Audio Error</span>
+              </div>
+              <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+              <p className="text-xs text-red-600 mt-1">
+                This usually means the audio URL has expired. Try closing and reopening the player.
+              </p>
+              <button
+                onClick={() => {
+                  setHasError(false)
+                  setErrorMessage('')
+                  // Force audio to reload
+                  if (audioRef.current) {
+                    audioRef.current.load()
+                  }
+                }}
+                className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs rounded transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
           <audio 
             ref={audioRef} 
             src={audioUrl} 
@@ -149,6 +179,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, onClose }) => {
             onError={(e) => {
               console.error('Audio failed to load:', e)
               setDuration(0)
+              setHasError(true)
+              setErrorMessage('Failed to load audio file. The URL may have expired.')
             }}
           />
 

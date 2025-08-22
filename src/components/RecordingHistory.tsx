@@ -161,7 +161,7 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => onPlay(recording)}
+                  onClick={async () => await onPlay(recording)}
                   className="p-2 text-primary-600 hover:bg-primary-100 rounded-lg transition-colors duration-200"
                   title="Play voice"
                 >

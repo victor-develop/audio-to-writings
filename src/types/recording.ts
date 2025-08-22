@@ -14,7 +14,7 @@ export interface RecordingFormData {
 
 export interface RecordingHistoryProps {
   recordings: Recording[]
-  onPlay: (recording: Recording) => void
+  onPlay: (recording: Recording) => Promise<void>
   onDelete: (id: string) => void
   onDownload: (recording: Recording) => void
   onTranscribe: (recording: Recording) => void

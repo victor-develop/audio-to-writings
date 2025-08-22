@@ -252,7 +252,24 @@ const RecordingInterface: React.FC = () => {
     return null
   }
 
-  const handlePlayRecording = (recording: Recording) => {
+  const handlePlayRecording = async (recording: Recording) => {
+    // Check if URL might be expired and refresh if needed
+    if (recording.storagePath) {
+      try {
+        const refreshedUrl = await refreshExpiredUrl(recording)
+        if (refreshedUrl) {
+          // Create a new recording object with the refreshed URL
+          const refreshedRecording = { ...recording, audioUrl: refreshedUrl }
+          setPlayingRecording(refreshedRecording)
+          return
+        }
+      } catch (error) {
+        console.error('Failed to refresh URL for playback:', error)
+        // Fall back to original recording if refresh fails
+      }
+    }
+    
+    // Use original recording if no refresh needed or refresh failed
     setPlayingRecording(recording)
   }
 
