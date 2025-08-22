@@ -226,6 +226,25 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
       return
     }
 
+    // Check if URL might be expired and refresh if needed
+    let audioUrlToUse = recording.audioUrl
+    if (recording.storagePath) {
+      try {
+        // Use supabase client directly to refresh the URL
+        const { data: urlData, error: urlError } = await supabase.storage
+          .from('audio-recordings')
+          .createSignedUrl(recording.storagePath, 3600)
+        
+        if (!urlError && urlData) {
+          audioUrlToUse = urlData.signedUrl
+          console.log('Refreshed audio URL for transcription')
+        }
+      } catch (error) {
+        console.error('Failed to refresh URL for transcription:', error)
+        // Continue with original URL if refresh fails
+      }
+    }
+
     setIsProcessing(true)
     setError(null)
     setRetryAfter(null)
@@ -244,9 +263,10 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          audioUrl: recording.audioUrl,
+          audioUrl: audioUrlToUse,
           prompt: promptToUse,
-          recordingId: recording.id
+          recordingId: recording.id,
+          storagePath: recording.storagePath
         })
       })
 

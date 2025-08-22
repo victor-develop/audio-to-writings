@@ -66,7 +66,7 @@ serve(async (req) => {
       )
     }
 
-    const { audioUrl, prompt, recordingId } = parsedBody
+    const { audioUrl, prompt, recordingId, storagePath } = parsedBody
 
     if (!audioUrl) {
       console.log(`[${requestId}] Missing audioUrl`)
@@ -144,29 +144,66 @@ serve(async (req) => {
     if (!audioResponse.ok) {
       console.error(`[${requestId}] Failed to fetch audio:`, audioResponse.status, audioResponse.statusText)
       
-      // Handle specific error cases for storage access
-      let errorMessage = 'Failed to fetch audio file'
-      let statusCode = 400
-      
-      if (audioResponse.status === 403) {
-        errorMessage = 'Access denied to audio file. The signed URL may have expired or be invalid.'
-        statusCode = 403
-      } else if (audioResponse.status === 404) {
-        errorMessage = 'Audio file not found. The file may have been deleted or the URL is incorrect.'
-        statusCode = 404
-      } else if (audioResponse.status === 401) {
-        errorMessage = 'Unauthorized access to audio file. Please ensure you have permission to access this file.'
-        statusCode = 401
+      // If we have a storagePath and the error is 403 (likely expired URL), try to regenerate the signed URL
+      if (audioResponse.status === 403 && storagePath) {
+        console.log(`[${requestId}] Attempting to regenerate expired signed URL for storagePath: ${storagePath}`)
+        
+        try {
+          // Generate a new signed URL
+          const { data: newUrlData, error: urlError } = await supabaseClient.storage
+            .from('audio-recordings')
+            .createSignedUrl(storagePath, 3600) // 1 hour expiry
+          
+          if (urlError) {
+            console.error(`[${requestId}] Failed to regenerate signed URL:`, urlError)
+          } else {
+            console.log(`[${requestId}] Successfully regenerated signed URL`)
+            
+            // Try fetching with the new URL
+            const newAudioResponse = await fetch(newUrlData.signedUrl, {
+              method: 'GET',
+              headers: { 'User-Agent': 'AudioPen-Pro-EdgeFunction/1.0' }
+            })
+            
+            if (newAudioResponse.ok) {
+              console.log(`[${requestId}] Successfully fetched audio with regenerated URL`)
+              // Continue with the new response
+              audioResponse = newAudioResponse
+            } else {
+              console.error(`[${requestId}] Still failed to fetch with regenerated URL:`, newAudioResponse.status)
+            }
+          }
+        } catch (regenerateError) {
+          console.error(`[${requestId}] Error regenerating signed URL:`, regenerateError)
+        }
       }
       
-      return new Response(
-        JSON.stringify({ 
-          error: errorMessage,
-          details: `HTTP ${audioResponse.status}: ${audioResponse.statusText}`,
-          suggestion: audioResponse.status === 403 ? 'Try refreshing the page to get a new signed URL' : undefined
-        }),
-        { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      // If we still don't have a valid response, return the error
+      if (!audioResponse.ok) {
+        // Handle specific error cases for storage access
+        let errorMessage = 'Failed to fetch audio file'
+        let statusCode = 400
+        
+        if (audioResponse.status === 403) {
+          errorMessage = 'Access denied to audio file. The signed URL may have expired or be invalid.'
+          statusCode = 403
+        } else if (audioResponse.status === 404) {
+          errorMessage = 'Audio file not found. The file may have been deleted or the URL is incorrect.'
+          statusCode = 404
+        } else if (audioResponse.status === 401) {
+          errorMessage = 'Unauthorized access to audio file. Please ensure you have permission to access this file.'
+          statusCode = 401
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            error: errorMessage,
+            details: `HTTP ${audioResponse.status}: ${audioResponse.statusText}`,
+            suggestion: audioResponse.status === 403 ? 'Try refreshing the page to get a new signed URL' : undefined
+          }),
+          { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     const audioBuffer = await audioResponse.arrayBuffer()
