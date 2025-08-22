@@ -24,3 +24,21 @@ export interface AudioPlayerProps {
   audioUrl: string
   onClose: () => void
 }
+
+export interface UserPrompt {
+  id: string
+  userId: string
+  name: string
+  prompt: string
+  category: string
+  isFavorite: boolean
+  usageCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateUserPromptData {
+  name: string
+  prompt: string
+  category?: string
+}

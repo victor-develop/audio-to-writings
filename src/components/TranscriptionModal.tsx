@@ -7,19 +7,14 @@ import {
   Copy, 
   Check, 
   Download,
-  Linkedin,
-  FileText,
-  Mic,
-  Users,
-  BookOpen,
-  Headphones,
-  PenTool,
-  Settings,
-  Heart
+  Plus
 } from 'lucide-react'
 import { predefinedPrompts, PredefinedPrompt } from '../data/predefinedPrompts'
 import { supabase } from '../lib/supabase'
-import { Recording } from '../types/recording'
+import { Recording, UserPrompt } from '../types/recording'
+import { useUserPrompts } from '../hooks/useUserPrompts'
+import PromptCard from './PromptCard'
+import PromptEditor from './PromptEditor'
 
 interface TranscriptionModalProps {
   recording: Recording
@@ -33,7 +28,7 @@ interface TranscriptionResult {
 }
 
 const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onClose }) => {
-  const [selectedPrompt, setSelectedPrompt] = useState<PredefinedPrompt>(predefinedPrompts[0])
+  const [selectedPrompt, setSelectedPrompt] = useState<PredefinedPrompt | UserPrompt>(predefinedPrompts[0])
   const [customPrompt, setCustomPrompt] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
@@ -42,31 +37,80 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
   const [retryCount, setRetryCount] = useState(0)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
   const [canRetry, setCanRetry] = useState(false)
+  const [showPromptEditor, setShowPromptEditor] = useState(false)
+  const [editingPrompt, setEditingPrompt] = useState<UserPrompt | null>(null)
+  
+  // Custom prompts hook
+  const { 
+    prompts: userPrompts, 
+    createPrompt, 
+    updatePrompt, 
+    deletePrompt, 
+    toggleFavorite,
+    incrementUsage,
+    generatePromptName 
+  } = useUserPrompts()
 
-  // Function to get the appropriate icon for each prompt type
-  const getPromptIcon = (promptId: string) => {
-    switch (promptId) {
-      case 'linkedin-storyteller':
-        return <Linkedin className="w-5 h-5 text-blue-600" />
-      case 'business-article-writer':
-        return <FileText className="w-5 h-5 text-green-600" />
-      case 'basic-transcription':
-        return <Mic className="w-5 h-5 text-gray-600" />
-      case 'meeting-minutes':
-        return <Users className="w-5 h-5 text-purple-600" />
-      case 'interview-transcript':
-        return <BookOpen className="w-5 h-5 text-indigo-600" />
-      case 'lecture-notes':
-        return <PenTool className="w-5 h-5 text-orange-600" />
-      case 'podcast-summary':
-        return <Headphones className="w-5 h-5 text-pink-600" />
-      case 'redbook':
-        return <Heart className="w-5 h-5 text-red-500" />
-      case 'custom-prompt':
-        return <Settings className="w-5 h-5 text-gray-600" />
-      default:
-        return <Sparkles className="w-5 h-5 text-purple-600" />
+
+
+  // Handle custom prompt creation
+  const handleCreateCustomPrompt = async () => {
+    if (!customPrompt.trim()) {
+      setError('Please enter a custom prompt')
+      return
     }
+
+    const promptName = generatePromptName(customPrompt)
+    const newPrompt = await createPrompt({
+      name: promptName,
+      prompt: customPrompt.trim()
+    })
+
+    if (newPrompt) {
+      setSelectedPrompt(newPrompt)
+      setCustomPrompt('')
+      setShowPromptEditor(false)
+    }
+  }
+
+  // Handle prompt editing
+  const handleEditPrompt = (prompt: UserPrompt) => {
+    setEditingPrompt(prompt)
+    setShowPromptEditor(true)
+  }
+
+  // Handle prompt saving (create or update)
+  const handleSavePrompt = async (promptData: { name: string; prompt: string; category?: string }) => {
+    if (editingPrompt) {
+      // Update existing prompt
+      const success = await updatePrompt(editingPrompt.id, promptData)
+      if (success) {
+        setEditingPrompt(null)
+        return true
+      }
+    } else {
+      // Create new prompt
+      const newPrompt = await createPrompt(promptData)
+      if (newPrompt) {
+        setSelectedPrompt(newPrompt)
+        return true
+      }
+    }
+    return false
+  }
+
+  // Handle prompt deletion
+  const handleDeletePrompt = async (id: string) => {
+    const success = await deletePrompt(id)
+    if (success && selectedPrompt && 'userId' in selectedPrompt && selectedPrompt.id === id) {
+      setSelectedPrompt(predefinedPrompts[0])
+    }
+    return success
+  }
+
+  // Handle favorite toggle
+  const handleToggleFavorite = async (id: string) => {
+    return await toggleFavorite(id)
   }
 
   const handleTranscribe = async () => {
@@ -84,7 +128,20 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
       return
     }
 
-    const promptToUse = selectedPrompt.id === 'custom-prompt' ? customPrompt : selectedPrompt.prompt
+    let promptToUse = ''
+    
+    if ('userId' in selectedPrompt) {
+      // User prompt
+      promptToUse = selectedPrompt.prompt
+      // Increment usage count
+      await incrementUsage(selectedPrompt.id)
+    } else if (selectedPrompt.id === 'custom-prompt') {
+      // Custom prompt input
+      promptToUse = customPrompt
+    } else {
+      // Predefined prompt
+      promptToUse = selectedPrompt.prompt
+    }
     
     if (!promptToUse.trim()) {
       setError('Please enter a prompt')
@@ -242,40 +299,70 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
             <div className="space-y-6">
               {/* Prompt Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Writing Style
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {predefinedPrompts.map((prompt) => (
-                    <button
-                      key={prompt.id}
-                      onClick={() => setSelectedPrompt(prompt)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all duration-200 ${
-                        selectedPrompt.id === prompt.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          {getPromptIcon(prompt.id)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">{prompt.name}</div>
-                          <div className="text-sm text-gray-600 mt-1">{prompt.shortDescription}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Writing Style
+                  </label>
+                  <button
+                    onClick={() => setShowPromptEditor(true)}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors duration-200"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create New</span>
+                  </button>
                 </div>
+                
+                {/* Predefined Prompts */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Built-in Prompts</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {predefinedPrompts.map((prompt) => (
+                      <PromptCard
+                        key={prompt.id}
+                        prompt={prompt}
+                        isSelected={selectedPrompt.id === prompt.id && !('userId' in selectedPrompt)}
+                        onSelect={setSelectedPrompt}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* User Custom Prompts */}
+                {userPrompts.length > 0 && (
+                  <div className="mb-4">
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Your Custom Prompts</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {userPrompts.map((prompt) => (
+                        <PromptCard
+                          key={prompt.id}
+                          prompt={prompt}
+                          isSelected={selectedPrompt.id === prompt.id && 'userId' in selectedPrompt}
+                          onSelect={setSelectedPrompt}
+                          onEdit={handleEditPrompt}
+                          onDelete={handleDeletePrompt}
+                          onToggleFavorite={handleToggleFavorite}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Custom Prompt Input */}
               {selectedPrompt.id === 'custom-prompt' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Custom Prompt
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Custom Prompt
+                    </label>
+                    <button
+                      onClick={handleCreateCustomPrompt}
+                      disabled={!customPrompt.trim()}
+                      className="px-3 py-1 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Save as Custom Prompt
+                    </button>
+                  </div>
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
@@ -409,6 +496,18 @@ const TranscriptionModal: React.FC<TranscriptionModalProps> = ({ recording, onCl
               </div>
             </div>
           )}
+
+          {/* Prompt Editor Modal */}
+          <PromptEditor
+            prompt={editingPrompt}
+            isOpen={showPromptEditor}
+            onClose={() => {
+              setShowPromptEditor(false)
+              setEditingPrompt(null)
+            }}
+            onSave={handleSavePrompt}
+            onToggleFavorite={editingPrompt ? handleToggleFavorite : undefined}
+          />
         </motion.div>
       </motion.div>
     </AnimatePresence>
